@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\WorkspaceController;
 use Illuminate\Support\Facades\Route;
@@ -24,13 +25,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::delete('/profile', [ProfileController::class, 'destroy'])
         ->name('profile.destroy');
-});
 
-Route::middleware(['auth', 'verified', 'workspace'])->group(function () {
+    Route::middleware('workspace')->group(function () {
 
-    Route::get('/dashboard', function () {
-        return view('dashboard');
-    })->name('dashboard');
+        Route::view('/dashboard', 'dashboard')
+            ->name('dashboard');
+
+        Route::resource('documents', DocumentController::class)
+            ->only([
+                'index',
+                'create',
+                'store',
+            ]);
+
+    });
 
 });
 
