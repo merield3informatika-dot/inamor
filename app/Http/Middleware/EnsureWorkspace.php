@@ -1,0 +1,19 @@
+<?php
+
+namespace App\Http\Middleware;
+
+use Closure;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
+
+class EnsureWorkspace
+{
+    public function handle(Request $request, Closure $next): Response
+    {
+        if ($request->user()->workspaceMemberships()->doesntExist()) {
+            return redirect()->route('workspaces.create');
+        }
+
+        return $next($request);
+    }
+}
