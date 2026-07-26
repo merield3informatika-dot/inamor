@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Document;
 use App\Models\User;
 use App\Repositories\DocumentRepository;
+use App\Services\Document\DocumentProcessorService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -62,19 +63,18 @@ class DocumentService
         });
     }
 
-  public function buildContext(
-    User $user,
-    string $question
-): array {
+    public function buildContext(
+        User $user,
+        string $question
+    ): array {
+        $workspace = $user->workspaceMemberships()
+            ->first()
+            ->workspace;
 
-    $workspace = $user->workspaceMemberships()
-        ->first()
-        ->workspace;
-
-    return $this->documentRepository
-        ->searchRelevantDocuments(
-            $workspace->id,
-            $question
-        );
-}
+        return $this->documentRepository
+            ->searchRelevantDocuments(
+                $workspace->id,
+                $question
+            );
+    }
 }

@@ -2,41 +2,38 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\AIService;
-use App\Services\DocumentService;
+use App\Services\Knowledge\KnowledgeService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Throwable;
 
-class AIController extends Controller
+final class AIController extends Controller
 {
     public function __construct(
-        protected AIService $aiService,
-        protected DocumentService $documentService,
-    ) {}
+        private readonly KnowledgeService $knowledgeService,
+    ) {
+    }
 
-    public function chat(Request $request)
+    public function chat(Request $request): JsonResponse
     {
-        $request->validate([
-            'message' => ['required', 'string'],
+        $validated = $request->validate([
+            'message' => ['required', 'string', 'max:2000'],
         ]);
 
-    $result = $this->documentService->buildContext(
-    $request->user(),
-    $request->message
-);
+        try {
+            $answer = $this->knowledgeService->ask(
+                $request->user(),
+                $validated['message']
+            );
+        } catch (Throwable $e) {
+            report($e);
 
-$reply = $this->aiService->chat(
-    $request->message,
-    $result['context']
-);
+            return response()->json([
+                'answer' => 'Terjadi kesalahan saat memproses pertanyaan Anda.',
+                'sources' => [],
+            ], 500);
+        }
 
-$reply .= "\n\n📄 Sumber:\n";
-
-foreach ($result['sources'] as $source) {
-    $reply .= "- {$source}\n";
-}
-
-        return response()->json([
-            'reply' => $reply,
-        ]);
+        return response()->json($answer->toArray());
     }
 }

@@ -3,70 +3,86 @@
 namespace App\Repositories;
 
 use App\Models\Document;
-use Illuminate\Database\Eloquent\Collection;
+use App\Models\DocumentContent;
+use Illuminate\Support\Collection;
 
-class DocumentRepository
+final class DocumentRepository
 {
     public function create(array $data): Document
     {
         return Document::create($data);
     }
 
+    public function update(Document $document, array $data): Document
+    {
+        $document->update($data);
+
+        return $document->refresh();
+    }
+
+    public function delete(Document $document): bool
+    {
+        return (bool) $document->delete();
+    }
+
     public function getByWorkspace(int $workspaceId): Collection
     {
-        return Document::where('workspace_id', $workspaceId)
+        return Document::query()
+            ->where('workspace_id', $workspaceId)
             ->latest()
             ->get();
     }
 
-  public function searchRelevantDocuments(
-    int $workspaceId,
-    string $question,
-    int $limit = 3
-): array {
+    /**
+     * Pre-filters documents at the database level to candidates that
+     * contain at least one keyword in their title or body. No scoring
+     * happens here - it is purely a DB-level candidate fetch.
+     *
+     * @param array<int, string> $keywords
+     */
+    public function searchDocuments(int $workspaceId, array $keywords): Collection
+    {
+        if (empty($keywords)) {
+            return collect();
+        }
 
-    $keywords = collect(
-        preg_split('/\s+/', strtolower($question))
-    )
-        ->filter(fn ($word) => mb_strlen($word) >= 3)
-        ->values();
-
-    $documents = Document::with('content')
-        ->where('workspace_id', $workspaceId)
-        ->get()
-        ->filter(function ($document) use ($keywords) {
-
-            if (!$document->content?->raw_text) {
-                return false;
-            }
-
-            $text = strtolower($document->content->raw_text);
-
-            foreach ($keywords as $keyword) {
-                if (str_contains($text, $keyword)) {
-                    return true;
+        return Document::query()
+            ->with('content')
+            ->where('workspace_id', $workspaceId)
+            ->where('status', 'ready')
+            ->where(function ($query) use ($keywords): void {
+                foreach ($keywords as $keyword) {
+                    $query->orWhere('title', 'like', "%{$keyword}%")
+                        ->orWhereHas('content', function ($contentQuery) use ($keyword): void {
+                            $contentQuery->where('raw_text', 'like', "%{$keyword}%");
+                        });
                 }
-            }
-
-            return false;
-        })
-        ->take($limit);
-
-    $context = '';
-    $sources = [];
-
-    foreach ($documents as $document) {
-
-        $context .= "Document: {$document->title}\n";
-        $context .= $document->content->raw_text;
-        $context .= "\n\n----------------------------------------\n\n";
-
-        $sources[] = $document->title;
+            })
+            ->get();
     }
 
-    return [
-        'context' => trim($context),
-        'sources' => $sources,
-    ];
-}
+    public function getDocumentContents(int $documentId): ?DocumentContent
+    {
+        return DocumentContent::query()
+            ->where('document_id', $documentId)
+            ->first();
+    }
+
+    /**
+     * @param array{raw_text: string, page_count: int} $data
+     */
+    public function createContent(Document $document, array $data): DocumentContent
+    {
+        return $document->content()->create($data);
+    }
+
+    public function markAsReady(Document $document): Document
+    {
+        return $this->update($document, ['status' => 'ready']);
+    }
+
+    public function markAsFailed(Document $document): Document
+    {
+        return $this->update($document, ['status' => 'failed']);
+    }
 }
