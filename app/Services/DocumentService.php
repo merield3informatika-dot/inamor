@@ -56,10 +56,25 @@ class DocumentService
                 'status'       => 'pending',
             ]);
 
-            // Proses dokumen (extract text + simpan ke document_contents)
             $this->documentProcessorService->process($document);
 
             return $document;
         });
     }
+
+  public function buildContext(
+    User $user,
+    string $question
+): array {
+
+    $workspace = $user->workspaceMemberships()
+        ->first()
+        ->workspace;
+
+    return $this->documentRepository
+        ->searchRelevantDocuments(
+            $workspace->id,
+            $question
+        );
+}
 }

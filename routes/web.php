@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AIController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\WorkspaceController;
@@ -8,6 +9,8 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return redirect()->route('dashboard');
 });
+
+Route::post('/ai/chat', [AIController::class, 'chat']);
 
 Route::middleware(['auth', 'verified'])->group(function () {
 
@@ -31,15 +34,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::view('/dashboard', 'dashboard')
             ->name('dashboard');
 
+        Route::view('/chat', 'chat.index')
+            ->name('chat');
+
         Route::resource('documents', DocumentController::class)
             ->only([
                 'index',
                 'create',
                 'store',
             ]);
-
     });
-
 });
 
-require __DIR__.'/auth.php';
+require __DIR__ . '/auth.php';
