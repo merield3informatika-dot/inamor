@@ -41,4 +41,5 @@ class DocumentController extends Controller
             ->route('documents.index')
             ->with('success', 'Document uploaded successfully.');
     }
+    
 }

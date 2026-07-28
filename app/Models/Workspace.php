@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-
 class Workspace extends Model
 {
     protected $fillable = [
@@ -27,8 +26,12 @@ class Workspace extends Model
     }
 
     public function documents(): HasMany
-{
-    return $this->hasMany(Document::class);
-}
+    {
+        return $this->hasMany(Document::class);
+    }
 
+    public function calendarEvents(): HasMany
+    {
+        return $this->hasMany(CalendarEvent::class);
+    }
 }

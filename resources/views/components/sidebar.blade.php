@@ -1,82 +1,219 @@
-<aside class="fixed top-3 bottom-3 left-3 z-50 w-[250px] flex flex-col bg-white rounded-[16px] border border-gray-200/80 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] transition-transform duration-300 -translate-x-full md:translate-x-0 overflow-hidden">
+<aside class="fixed top-0 bottom-0 left-0 z-50 w-[240px] bg-white border-r border-gray-100 flex flex-col transition-transform duration-300 -translate-x-full md:translate-x-0 shadow-[2px_0_16px_rgba(0,0,0,0.015)]">
     
-    <!-- Workspace Switcher -->
-    <div class="px-3 pt-3 pb-2">
-        <button class="flex items-center justify-between w-full h-[44px] px-2 rounded-[10px] hover:bg-gray-50 transition-colors group">
-            <div class="flex items-center gap-2.5">
-                <div class="w-6 h-6 rounded-[6px] bg-gradient-to-tr from-indigo-600 to-indigo-500 flex items-center justify-center text-white font-semibold text-[11px] shadow-sm">
-                    {{ substr(auth()->user()->workspaceMemberships->first()?->workspace?->name ?? 'K', 0, 1) }}
-                </div>
-                <span class="text-[14px] font-medium text-gray-900 truncate">
-                    {{ auth()->user()->workspaceMemberships->first()?->workspace?->name ?? 'KnowledgeOS' }}
-                </span>
-            </div>
-            <svg class="w-[18px] h-[18px] text-gray-400 group-hover:text-gray-600 transition-colors" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" />
+    <!-- Header / Logo -->
+    <div class="px-4 pt-5 pb-4 flex items-center gap-2.5 shrink-0">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20 shrink-0">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="12 2 22 8 22 16 12 22 2 16 2 8" opacity="0.2"/>
+                <polygon points="12 4 19 8.2 19 15.8 12 20 5 15.8 5 8.2" fill="white"/>
+                <circle cx="12" cy="12" r="3" fill="#4F46E5"/>
             </svg>
+        </div>
+        <div>
+            <h1 class="text-[15px] font-bold tracking-tight text-gray-900 leading-tight">INAMOR</h1>
+            <p class="text-[9px] text-gray-400 leading-tight">Pemerintah Berbasis AI</p>
+        </div>
+    </div>
+
+    <!-- Workspace Selector -->
+    <div class="px-3 mb-3 shrink-0">
+        <button class="w-full flex items-center justify-between p-2 rounded-lg border border-gray-200/80 bg-gray-50/50 hover:bg-gray-50 transition-colors group">
+            <div class="flex items-center gap-2.5 overflow-hidden">
+                <div class="w-6 h-6 rounded-md bg-[#0F172A] flex items-center justify-center shrink-0">
+                    <svg class="w-3 h-3 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                </div>
+                <div class="text-left min-w-0">
+                    <p class="text-[13px] font-semibold text-gray-900 leading-tight truncate">
+                        Xcore
+                    </p>
+                    <p class="text-[11px] text-gray-500 leading-tight truncate">
+                        Workspace Utama
+                    </p>
+                </div>
+            </div>
+            <svg class="w-3.5 h-3.5 text-gray-400 group-hover:text-gray-600 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
         </button>
     </div>
 
-    <!-- New Chat Button -->
-    <div class="px-3 mb-2">
-        <a href="{{ route('chat') }}" class="flex items-center justify-center gap-2 w-full h-[42px] bg-[#0F172A] hover:bg-[#1E293B] text-white rounded-[10px] text-[14px] font-medium transition-colors shadow-[0_1px_2px_rgba(0,0,0,0.1)] active:scale-[0.98]">
-            <svg class="w-[18px] h-[18px]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-            New Chat
-        </a>
-    </div>
-
-    <!-- Navigation -->
-    <nav class="flex-1 overflow-y-auto px-3 space-y-0.5">
+    <!-- Navigation Scrollable Area -->
+    <nav class="flex-1 px-2.5 space-y-0.5 overflow-y-auto pb-3 text-[13px]">
         
-        <div class="pt-2 pb-1 px-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-            Workspace
+        <!-- ========================================== -->
+        <!-- 1. FITUR AKTIF                             -->
+        <!-- ========================================== -->
+
+        <!-- Beranda -->
+        <a href="{{ route('dashboard') }}" class="flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-colors {{ request()->routeIs('dashboard') ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-gray-50' }}">
+            <svg class="w-4 h-4 {{ request()->routeIs('dashboard') ? 'text-blue-600' : 'text-blue-500' }}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
+            <span>Beranda</span>
+        </a>
+
+        <!-- AI Assistant -->
+        <a href="{{ route('chat') }}" class="flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-colors {{ request()->routeIs('chat') ? 'bg-purple-50 text-purple-700 font-semibold' : 'text-gray-600 hover:bg-gray-50' }}">
+            <svg class="w-4 h-4 {{ request()->routeIs('chat') ? 'text-purple-600' : 'text-purple-500' }}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z" /></svg>
+            <span>AI Assistant</span>
+        </a>
+
+        <!-- Dokumen & Arsip (Collapsible) -->
+        @php
+            $isDocsActive = request()->routeIs(['documents.*', 'knowledge.manual.*', 'knowledge.feedback.*']);
+        @endphp
+        <div>
+            <button type="button" 
+                onclick="
+                    let menu = this.nextElementSibling;
+                    let icon = this.querySelector('.arrow-icon');
+                    icon.classList.toggle('rotate-90');
+                    menu.classList.toggle('max-h-0');
+                    menu.classList.toggle('max-h-[500px]');
+                "
+                class="w-full flex items-center justify-between px-2.5 py-2 rounded-lg transition-colors {{ $isDocsActive ? 'bg-red-50 text-red-700 font-semibold' : 'text-gray-600 hover:bg-gray-50' }}">
+                <div class="flex items-center gap-2.5">
+                    <svg class="w-4 h-4 {{ $isDocsActive ? 'text-red-600' : 'text-red-500' }}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                    </svg>
+                    <span>Dokumen & Arsip</span>
+                </div>
+                <svg class="arrow-icon w-3.5 h-3.5 transition-transform duration-300 {{ $isDocsActive ? 'rotate-90' : '' }}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+            </button>
+
+            <!-- Submenu Container -->
+            <div class="overflow-hidden transition-all duration-300 ease-in-out {{ $isDocsActive ? 'max-h-[500px]' : 'max-h-0' }}">
+                <div class="pt-1.5 pb-1 pl-11 pr-2 flex flex-col gap-0.5 relative">
+                    
+                    <div class="absolute left-[22px] top-0 bottom-3 w-px bg-gray-200"></div>
+
+                    <!-- Dokumen -->
+                    <a href="{{ route('documents.index') }}" class="group flex items-center gap-2 py-1.5 px-2.5 rounded-md text-[12px] transition-colors relative {{ request()->routeIs('documents.*') ? 'text-gray-900 font-semibold bg-gray-100/80' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50' }}">
+                        <svg class="w-3.5 h-3.5 {{ request()->routeIs('documents.*') ? 'text-red-500' : 'text-gray-400 group-hover:text-gray-500' }}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span>Dokumen</span>
+                    </a>
+                    
+                    <!-- Manual Knowledge -->
+                    <a href="{{ route('knowledge.manual.index') }}" class="group flex items-center gap-2 py-1.5 px-2.5 rounded-md text-[12px] transition-colors relative {{ request()->routeIs('knowledge.manual.*') ? 'text-gray-900 font-semibold bg-gray-100/80' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50' }}">
+                        <svg class="w-3.5 h-3.5 {{ request()->routeIs('knowledge.manual.*') ? 'text-red-500' : 'text-gray-400 group-hover:text-gray-500' }}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                        </svg>
+                        <span>Manual Knowledge</span>
+                    </a>
+                    
+                    <!-- AI Feedback -->
+                    <a href="{{ route('knowledge.feedback.index') }}" class="group flex items-center gap-2 py-1.5 px-2.5 rounded-md text-[12px] transition-colors relative {{ request()->routeIs('knowledge.feedback.*') ? 'text-gray-900 font-semibold bg-gray-100/80' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50' }}">
+                        <svg class="w-3.5 h-3.5 {{ request()->routeIs('knowledge.feedback.*') ? 'text-red-500' : 'text-gray-400 group-hover:text-gray-500' }}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        <span>AI Feedback</span>
+                    </a>
+
+                    <!-- AI Training -->
+                    <a href="javascript:void(0)" class="group flex items-center gap-2 py-1.5 px-2.5 rounded-md text-[12px] transition-colors text-gray-400 cursor-not-allowed">
+                        <svg class="w-3.5 h-3.5 text-gray-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                        </svg>
+                        <span>AI Training</span>
+                    </a>
+                    
+                </div>
+            </div>
         </div>
 
-        <a href="{{ route('dashboard') }}" class="flex items-center justify-between h-[42px] px-2 rounded-[10px] transition-colors group {{ request()->routeIs('dashboard') ? 'bg-gray-50 text-gray-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' }}">
-            <div class="flex items-center gap-3">
-                <svg class="w-[18px] h-[18px] transition-colors {{ request()->routeIs('dashboard') ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-600' }}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
-                </svg>
-                <span class="text-[14px] font-medium">Home</span>
+        <!-- Kalender Kegiatan -->
+        <a href="{{ route('calendar.index') }}" class="flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-colors {{ request()->routeIs('calendar.*') ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-gray-50' }}">
+            <svg class="w-4 h-4 {{ request()->routeIs('calendar.*') ? 'text-blue-600' : 'text-blue-500' }}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span>Kalender Kegiatan</span>
+        </a>
+
+        <!-- ========================================== -->
+        <!-- 2. FITUR MENDATANG (COMING SOON)           -->
+        <!-- ========================================== -->
+        
+        @php
+            $comingSoonWrapper = "flex items-center justify-between px-2.5 py-2 rounded-lg text-gray-500 opacity-60 cursor-not-allowed hover:bg-gray-50/50 transition-colors mt-4";
+            $comingSoonWrapperNormal = "flex items-center justify-between px-2.5 py-2 rounded-lg text-gray-500 opacity-60 cursor-not-allowed hover:bg-gray-50/50 transition-colors";
+            $comingSoonBadge = "text-[9px] font-bold bg-gray-200/60 text-gray-500 px-1.5 py-0.5 rounded-full tracking-wide";
+        @endphp
+
+        <!-- Layanan Digital (ditambah margin top sedikit untuk memisahkan dari menu aktif) -->
+        <a href="javascript:void(0)" class="{{ $comingSoonWrapper }}">
+            <div class="flex items-center gap-2.5">
+                <svg class="w-4 h-4 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
+                <span>Layanan Digital</span>
+            </div>
+            <span class="{{ $comingSoonBadge }}">Soon</span>
+        </a>
+
+        <!-- Surat & Disposisi -->
+        <a href="javascript:void(0)" class="{{ $comingSoonWrapperNormal }}">
+            <div class="flex items-center gap-2.5">
+                <svg class="w-4 h-4 text-orange-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+                <span>Surat & Disposisi</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+                @if(isset($unreadDispositions) && $unreadDispositions > 0)
+                    <span class="bg-red-100 text-red-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{{ $unreadDispositions }}</span>
+                @endif
+                <span class="{{ $comingSoonBadge }}">Soon</span>
             </div>
         </a>
 
-        <a href="{{ route('chat') }}" class="flex items-center justify-between h-[42px] px-2 rounded-[10px] transition-colors group {{ request()->routeIs('chat.*') ? 'bg-gray-50 text-gray-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' }}">
-            <div class="flex items-center gap-3">
-                <svg class="w-[18px] h-[18px] transition-colors {{ request()->routeIs('chat.*') ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-600' }}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.221-1.15-2.136-2.389-2.097a48.045 48.045 0 00-11.212 0c-1.239.039-2.39 .955-2.39 2.176v5.25c0 1.22 1.15 2.136 2.389 2.097A48.24 48.24 0 0012 14.25c.32 0 .64.011.96.032m0 0l-3 3v-3m-3 0c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951" />
-                </svg>
-                <span class="text-[14px] font-medium">AI Chat</span>
+        <!-- Pengumuman -->
+        <a href="javascript:void(0)" class="{{ $comingSoonWrapperNormal }}">
+            <div class="flex items-center gap-2.5">
+                <svg class="w-4 h-4 text-yellow-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>
+                <span>Pengumuman</span>
             </div>
+            <span class="{{ $comingSoonBadge }}">Soon</span>
         </a>
 
-        <div class="pt-4 pb-1 px-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-            Knowledge Base
-        </div>
-
-        <a href="{{ route('documents.index') }}" class="flex items-center justify-between h-[42px] px-2 rounded-[10px] transition-colors group {{ request()->routeIs('documents.*') ? 'bg-gray-50 text-gray-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' }}">
-            <div class="flex items-center gap-3">
-                <svg class="w-[18px] h-[18px] transition-colors {{ request()->routeIs('documents.*') ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-600' }}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                </svg>
-                <span class="text-[14px] font-medium">Documents</span>
+        <!-- Data & Laporan -->
+        <a href="javascript:void(0)" class="{{ $comingSoonWrapperNormal }}">
+            <div class="flex items-center gap-2.5">
+                <svg class="w-4 h-4 text-teal-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                <span>Data & Laporan</span>
             </div>
+            <span class="{{ $comingSoonBadge }}">Soon</span>
+        </a>
+
+        <!-- Monitoring & Evaluasi -->
+        <a href="javascript:void(0)" class="{{ $comingSoonWrapperNormal }}">
+            <div class="flex items-center gap-2.5">
+                <svg class="w-4 h-4 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                <span>Monitoring & Evaluasi</span>
+            </div>
+            <span class="{{ $comingSoonBadge }}">Soon</span>
+        </a>
+
+        <!-- Pengaturan -->
+        <a href="javascript:void(0)" class="{{ $comingSoonWrapperNormal }}">
+            <div class="flex items-center gap-2.5">
+                <svg class="w-4 h-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                <span>Pengaturan</span>
+            </div>
+            <span class="{{ $comingSoonBadge }}">Soon</span>
         </a>
     </nav>
 
-    <!-- User Profile Footer -->
-    <div class="p-3 border-t border-gray-100">
-        <a href="{{ route('profile.edit') }}" class="flex items-center gap-2.5 p-2 rounded-[10px] hover:bg-gray-50 transition-colors">
-            <div class="w-7 h-7 rounded-full bg-gray-900 text-white flex items-center justify-center font-medium text-[11px] shrink-0">
-                {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
+    <!-- Bottom User Profile (Pinned) -->
+    <div class="p-3 border-t border-gray-100 shrink-0">
+        <div class="flex items-center gap-2.5 px-1 py-1">
+            <div class="relative shrink-0">
+                <img src="https://ui-avatars.com/api/?name={{ urlencode(auth()->user()->name ?? 'User') }}&background=E0E7FF&color=4F46E5" alt="Profile" class="w-8 h-8 rounded-full object-cover">
+                <span class="absolute bottom-0 right-0 w-2 h-2 bg-green-500 border-2 border-white rounded-full"></span>
             </div>
             <div class="flex-1 min-w-0">
-                <p class="text-[13px] font-medium text-gray-900 truncate">{{ auth()->user()->name }}</p>
-                <p class="text-[11px] text-gray-500 truncate">{{ auth()->user()->email }}</p>
+                <p class="text-[12px] font-bold text-gray-900 truncate">{{ auth()->user()->name ?? 'Pengguna' }}</p>
+                <p class="text-[10px] text-gray-500 truncate">{{ auth()->user()->role ?? 'Administrator' }}</p>
             </div>
-        </a>
+            <svg class="w-3.5 h-3.5 text-gray-400 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+        </div>
     </div>
-
+    
 </aside>

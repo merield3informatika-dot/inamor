@@ -14,6 +14,9 @@ return [
     'retrieval' => [
         'result_limit' => (int) env('KNOWLEDGE_RESULT_LIMIT', 3),
 
+        // Minimum score agar dokumen dianggap relevan
+        'minimum_score' => (int) env('KNOWLEDGE_MINIMUM_SCORE', 4),
+
         'min_keyword_length' => (int) env('KNOWLEDGE_MIN_KEYWORD_LENGTH', 2),
 
         'max_heading_length' => (int) env('KNOWLEDGE_MAX_HEADING_LENGTH', 80),
@@ -29,10 +32,6 @@ return [
     |--------------------------------------------------------------------------
     | Context Settings
     |--------------------------------------------------------------------------
-    |
-    | Bounds how much retrieved document text can be packed into a single
-    | prompt, so a workspace with large documents never overflows Gemini.
-    |
     */
     'context' => [
         'max_length' => (int) env('KNOWLEDGE_MAX_CONTEXT_LENGTH', 12000),
@@ -42,11 +41,6 @@ return [
     |--------------------------------------------------------------------------
     | Prompt Settings
     |--------------------------------------------------------------------------
-    |
-    | Single source of truth for the assistant's system role and the exact
-    | fallback answer used both inside the prompt and by KnowledgeService
-    | when no documents are found at all.
-    |
     */
     'prompt' => [
         'system_role'     => env('KNOWLEDGE_SYSTEM_ROLE', 'You are an AI Knowledge Assistant.'),
@@ -57,10 +51,6 @@ return [
     |--------------------------------------------------------------------------
     | Gemini Call Settings
     |--------------------------------------------------------------------------
-    |
-    | Model and API key stay in config/gemini.php. This only controls the
-    | HTTP behaviour of AIService itself.
-    |
     */
     'gemini' => [
         'timeout' => (int) env('KNOWLEDGE_GEMINI_TIMEOUT', 60),
