@@ -16,8 +16,13 @@
     </div>
 
     <!-- Workspace Selector -->
-    <div class="px-3 mb-3 shrink-0">
-        <button class="w-full flex items-center justify-between p-2 rounded-lg border border-gray-200/80 bg-gray-50/50 hover:bg-gray-50 transition-colors group">
+    <div class="px-3 mb-3 shrink-0 relative">
+        <button type="button"
+            onclick="
+                let menu = document.getElementById('workspace-switcher-menu');
+                menu.classList.toggle('hidden');
+            "
+            class="w-full flex items-center justify-between p-2 rounded-lg border border-gray-200/80 bg-gray-50/50 hover:bg-gray-50 transition-colors group">
             <div class="flex items-center gap-2.5 overflow-hidden">
                 <div class="w-6 h-6 rounded-md bg-[#0F172A] flex items-center justify-center shrink-0">
                     <svg class="w-3 h-3 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -26,15 +31,32 @@
                 </div>
                 <div class="text-left min-w-0">
                     <p class="text-[13px] font-semibold text-gray-900 leading-tight truncate">
-                        Xcore
+                        {{ auth()->user()->currentWorkspace->name ?? 'Pilih Workspace' }}
                     </p>
                     <p class="text-[11px] text-gray-500 leading-tight truncate">
-                        Workspace Utama
+                        Workspace Aktif
                     </p>
                 </div>
             </div>
             <svg class="w-3.5 h-3.5 text-gray-400 group-hover:text-gray-600 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
         </button>
+
+        <div id="workspace-switcher-menu" class="hidden absolute left-3 right-3 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
+            @foreach (auth()->user()->workspaceMemberships as $membership)
+                <form action="{{ route('workspaces.switch', $membership->workspace) }}" method="POST">
+                    @csrf
+                    <button type="submit" class="w-full text-left px-3 py-2 text-[12px] {{ $membership->workspace_id === auth()->user()->current_workspace_id ? 'text-blue-700 font-semibold bg-blue-50' : 'text-gray-600 hover:bg-gray-50' }}">
+                        {{ $membership->workspace->name }}
+                    </button>
+                </form>
+            @endforeach
+
+            <div class="border-t border-gray-100 mt-1 pt-1">
+                <a href="#" class="block px-3 py-2 text-[12px] text-gray-500 hover:bg-gray-50">
+                    + Buat Workspace Baru
+                </a>
+            </div>
+        </div>
     </div>
 
     <!-- Navigation Scrollable Area -->
@@ -141,7 +163,7 @@
             $comingSoonBadge = "text-[9px] font-bold bg-gray-200/60 text-gray-500 px-1.5 py-0.5 rounded-full tracking-wide";
         @endphp
 
-        <!-- Layanan Digital (ditambah margin top sedikit untuk memisahkan dari menu aktif) -->
+        <!-- Layanan Digital -->
         <a href="javascript:void(0)" class="{{ $comingSoonWrapper }}">
             <div class="flex items-center gap-2.5">
                 <svg class="w-4 h-4 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
@@ -202,18 +224,102 @@
     </nav>
 
     <!-- Bottom User Profile (Pinned) -->
-    <div class="p-3 border-t border-gray-100 shrink-0">
-        <div class="flex items-center gap-2.5 px-1 py-1">
+    <div class="p-3 border-t border-gray-100 shrink-0 relative">
+        <button id="user-profile-btn" type="button" class="w-full flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-gray-50 transition-colors focus:outline-none group">
             <div class="relative shrink-0">
-                <img src="https://ui-avatars.com/api/?name={{ urlencode(auth()->user()->name ?? 'User') }}&background=E0E7FF&color=4F46E5" alt="Profile" class="w-8 h-8 rounded-full object-cover">
+                <img src="https://ui-avatars.com/api/?name={{ urlencode(auth()->user()->name ?? 'User') }}&background=E0E7FF&color=4F46E5" alt="Profile" class="w-8 h-8 rounded-full object-cover shadow-sm group-hover:shadow-md transition-shadow">
                 <span class="absolute bottom-0 right-0 w-2 h-2 bg-green-500 border-2 border-white rounded-full"></span>
             </div>
-            <div class="flex-1 min-w-0">
+            <div class="flex-1 min-w-0 text-left">
                 <p class="text-[12px] font-bold text-gray-900 truncate">{{ auth()->user()->name ?? 'Pengguna' }}</p>
                 <p class="text-[10px] text-gray-500 truncate">{{ auth()->user()->role ?? 'Administrator' }}</p>
             </div>
-            <svg class="w-3.5 h-3.5 text-gray-400 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+            <svg id="user-profile-chevron" class="w-4 h-4 text-gray-400 group-hover:text-gray-600 shrink-0 transition-transform duration-200" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+        </button>
+
+        <!-- Dropdown Menu -->
+        <div id="user-profile-menu" class="hidden absolute bottom-[100%] left-2 right-2 mb-1 bg-white border border-gray-100/80 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.08)] z-50 p-1.5 opacity-0 scale-95 translate-y-2 transition-all duration-200 ease-out">
+            
+            <!-- My Profile -->
+            <button disabled class="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-[12px] text-gray-400 cursor-not-allowed hover:bg-gray-50/50 transition-colors mb-0.5">
+                <div class="flex items-center gap-2.5">
+                    <svg class="w-4 h-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    <span>My Profile</span>
+                </div>
+                <span class="text-[9px] font-bold bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full tracking-wide">Soon</span>
+            </button>
+
+            <!-- Workspace Settings -->
+            <button disabled class="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-[12px] text-gray-400 cursor-not-allowed hover:bg-gray-50/50 transition-colors">
+                <div class="flex items-center gap-2.5">
+                    <svg class="w-4 h-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <span>Workspace Settings</span>
+                </div>
+                <span class="text-[9px] font-bold bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full tracking-wide">Soon</span>
+            </button>
+
+            <!-- Divider -->
+            <div class="h-px bg-gray-100 my-1.5 mx-1"></div>
+
+            <!-- Logout -->
+            <form method="POST" action="{{ route('logout') }}" class="m-0">
+                @csrf
+                <button type="submit" class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[12px] text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors">
+                    <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    <span class="font-medium">Logout</span>
+                </button>
+            </form>
         </div>
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const profileBtn = document.getElementById('user-profile-btn');
+            const profileMenu = document.getElementById('user-profile-menu');
+            const chevron = document.getElementById('user-profile-chevron');
+            let isMenuOpen = false;
+
+            function toggleProfileMenu(event) {
+                if (event) event.stopPropagation();
+                
+                isMenuOpen = !isMenuOpen;
+                
+                if (isMenuOpen) {
+                    profileMenu.classList.remove('hidden');
+                    // Force a browser reflow to enable transition after removing 'hidden'
+                    void profileMenu.offsetWidth; 
+                    
+                    profileMenu.classList.remove('opacity-0', 'scale-95', 'translate-y-2');
+                    profileMenu.classList.add('opacity-100', 'scale-100', 'translate-y-0');
+                    chevron.classList.add('rotate-180');
+                } else {
+                    profileMenu.classList.remove('opacity-100', 'scale-100', 'translate-y-0');
+                    profileMenu.classList.add('opacity-0', 'scale-95', 'translate-y-2');
+                    chevron.classList.remove('rotate-180');
+                    
+                    setTimeout(() => {
+                        if (!isMenuOpen) profileMenu.classList.add('hidden');
+                    }, 200);
+                }
+            }
+
+            profileBtn.addEventListener('click', toggleProfileMenu);
+
+            document.addEventListener('click', function (event) {
+                if (isMenuOpen && !profileBtn.contains(event.target) && !profileMenu.contains(event.target)) {
+                    toggleProfileMenu();
+                }
+            });
+        });
+    </script>
     
 </aside>

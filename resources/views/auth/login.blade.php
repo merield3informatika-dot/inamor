@@ -1,4 +1,9 @@
 <x-guest-layout>
+    <div class="mb-6 text-center">
+        <h1 class="text-xl font-bold text-gray-900">Masuk ke INAMOR</h1>
+        <p class="text-sm text-gray-500 mt-1">Kelola knowledge dan AI organisasi Anda.</p>
+    </div>
+
     <!-- Session Status -->
     <x-auth-session-status class="mb-4" :status="session('status')" />
 
@@ -44,4 +49,9 @@
             </x-primary-button>
         </div>
     </form>
+
+    <p class="mt-6 text-center text-sm text-gray-500">
+        Belum punya akun?
+        <a href="{{ route('register') }}" class="font-semibold text-indigo-600 hover:text-indigo-700">Daftar di sini</a>
+    </p>
 </x-guest-layout>

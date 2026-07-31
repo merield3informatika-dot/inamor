@@ -5,20 +5,20 @@ namespace App\Http\Controllers;
 use App\Models\CalendarEvent;
 use App\Models\KnowledgeFeedback;
 use App\Models\ManualKnowledge;
-use App\Services\Workspace\WorkspaceResolver;
+use App\Services\WorkspaceService;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
     public function __construct(
-        private readonly WorkspaceResolver $workspaceResolver
+        private readonly WorkspaceService $workspaceService
     ) {
     }
 
     public function index(Request $request): View
     {
-        $workspace = $this->workspaceResolver->resolve($request->user());
+        $workspace = $this->workspaceService->resolveActive($request->user());
 
         $stats = [
             'document_count_today' => $workspace->documents()

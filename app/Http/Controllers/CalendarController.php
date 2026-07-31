@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CalendarEvent;
-use App\Services\Workspace\WorkspaceResolver;
+use App\Services\WorkspaceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -11,13 +11,13 @@ use Illuminate\View\View;
 class CalendarController extends Controller
 {
     public function __construct(
-        private readonly WorkspaceResolver $workspaceResolver
+        private readonly WorkspaceService $workspaceService
     ) {
     }
 
     public function index(Request $request): View
     {
-        $workspace = $this->workspaceResolver->resolve($request->user());
+        $workspace = $this->workspaceService->resolveActive($request->user());
 
         $events = $workspace->calendarEvents()
             ->orderBy('start_at')
@@ -32,14 +32,14 @@ class CalendarController extends Controller
     {
         // Resolve workspace hanya untuk memastikan user punya akses;
         // tidak ada data lain yang dibutuhkan form create.
-        $this->workspaceResolver->resolve($request->user());
+        $this->workspaceService->resolveActive($request->user());
 
         return view('calendar.create');
     }
 
     public function store(Request $request): RedirectResponse
     {
-        $workspace = $this->workspaceResolver->resolve($request->user());
+        $workspace = $this->workspaceService->resolveActive($request->user());
 
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
@@ -63,7 +63,7 @@ class CalendarController extends Controller
 
 public function edit(Request $request, CalendarEvent $calendar): View
 {
-    $workspace = $this->workspaceResolver->resolve($request->user());
+    $workspace = $this->workspaceService->resolveActive($request->user());
 
     abort_if($calendar->workspace_id !== $workspace->id, 404);
 
@@ -74,7 +74,7 @@ public function edit(Request $request, CalendarEvent $calendar): View
 
 public function update(Request $request, CalendarEvent $calendar): RedirectResponse
 {
-    $workspace = $this->workspaceResolver->resolve($request->user());
+    $workspace = $this->workspaceService->resolveActive($request->user());
 
     abort_if($calendar->workspace_id !== $workspace->id, 404);
 
@@ -97,7 +97,7 @@ public function update(Request $request, CalendarEvent $calendar): RedirectRespo
 
 public function destroy(Request $request, CalendarEvent $calendar): RedirectResponse
 {
-    $workspace = $this->workspaceResolver->resolve($request->user());
+    $workspace = $this->workspaceService->resolveActive($request->user());
 
     abort_if($calendar->workspace_id !== $workspace->id, 404);
 

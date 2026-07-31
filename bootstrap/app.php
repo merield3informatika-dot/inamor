@@ -13,7 +13,10 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
 
-     
+        $middleware->alias([
+            'workspace' => \App\Http\Middleware\EnsureWorkspaceExists::class,
+        ]);
+
         $middleware->validateCsrfTokens(except: [
             'ai/chat',
         ]);
