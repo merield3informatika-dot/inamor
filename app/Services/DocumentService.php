@@ -6,6 +6,7 @@ use App\Models\Document;
 use App\Models\User;
 use App\Repositories\DocumentRepository;
 use App\Services\Document\DocumentProcessorService;
+use App\Services\Workspace\WorkspaceResolver;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -15,13 +16,12 @@ class DocumentService
     public function __construct(
         protected DocumentRepository $documentRepository,
         protected DocumentProcessorService $documentProcessorService,
+        protected WorkspaceResolver $workspaceResolver,
     ) {}
 
     public function getDocuments(User $user)
     {
-        $workspace = $user->workspaceMemberships()
-            ->first()
-            ->workspace;
+        $workspace = $this->workspaceResolver->resolve($user);
 
         return $this->documentRepository
             ->getByWorkspace($workspace->id);
@@ -34,9 +34,7 @@ class DocumentService
     ): Document {
         return DB::transaction(function () use ($user, $title, $file) {
 
-            $workspace = $user->workspaceMemberships()
-                ->first()
-                ->workspace;
+            $workspace = $this->workspaceResolver->resolve($user);
 
             $fileName = Str::uuid() . '.' . $file->getClientOriginalExtension();
 
@@ -67,14 +65,11 @@ class DocumentService
         User $user,
         string $question
     ): array {
-        $workspace = $user->workspaceMemberships()
-            ->first()
-            ->workspace;
+        $workspace = $this->workspaceResolver->resolve($user);
 
-        return $this->documentRepository
-            ->searchRelevantDocuments(
-                $workspace->id,
-                $question
-            );
+        return $this->documentRepository->searchRelevantDocuments(
+            $workspace->id,
+            $question
+        );
     }
 }

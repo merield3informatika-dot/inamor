@@ -10,11 +10,30 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 
 
-#[Fillable(['name', 'email', 'password', 'current_workspace_id'])]
+#[Fillable(['name',
+'email',
+'password',
+
+'avatar',
+
+'username',
+
+'bio',
+
+'phone',
+
+'job_title',
+
+'department',
+
+'location',
+
+'current_workspace_id',])]
 #[Hidden(['password', 'remember_token'])]
-class User extends Authenticatable
+class User extends Authenticatable implements MustVerifyEmail
 {
     use HasFactory, Notifiable;
 
@@ -32,6 +51,27 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Workspace::class, 'current_workspace_id');
     }
+    public function joinRequests(): HasMany
+{
+    return $this->hasMany(
+        WorkspaceJoinRequest::class
+    );
+}
+public function createdWorkspaceInvitations(): HasMany
+{
+    return $this->hasMany(
+        WorkspaceInvitation::class,
+        'created_by'
+    );
+}
+
+public function reviewedJoinRequests(): HasMany
+{
+    return $this->hasMany(
+        WorkspaceJoinRequest::class,
+        'reviewed_by'
+    );
+}
 
     protected function casts(): array
     {

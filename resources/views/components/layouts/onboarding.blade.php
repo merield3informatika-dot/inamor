@@ -1,68 +1,93 @@
-@props([
-    'title' => 'Onboarding',
-])
-
 <!DOCTYPE html>
-<html lang="en" class="scroll-smooth">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ $title }} — INAMOR</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>INAMOR — AI Workspace Setup</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
     <style>
-        @keyframes onb-pop {
-            0% { transform: scale(0.6); opacity: 0; }
-            60% { transform: scale(1.06); opacity: 1; }
-            100% { transform: scale(1); opacity: 1; }
+        [x-cloak] { display: none !important; }
+        /* Ultra-smooth SaaS easings */
+        .ease-out-expo { transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+        .ease-in-out-expo { transition-timing-function: cubic-bezier(0.87, 0, 0.13, 1); }
+        
+        /* Premium custom scrollbar for the left panel (if ever needed on tiny screens) */
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 10px; }
+        .custom-scroll:hover::-webkit-scrollbar-thumb { background: #D1D5DB; }
+
+        /* Floating animations for preview */
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
         }
-        @keyframes onb-draw {
-            from { stroke-dashoffset: 48; }
-            to { stroke-dashoffset: 0; }
+        .animate-float { animation: float 6s ease-in-out infinite; }
+        
+        /* Ambient gradient rotation */
+        @keyframes ambient {
+            0% { transform: rotate(0deg) scale(1); }
+            50% { transform: rotate(180deg) scale(1.1); }
+            100% { transform: rotate(360deg) scale(1); }
         }
-        .onb-pop { animation: onb-pop .5s cubic-bezier(.2,.8,.2,1) both; }
-        .onb-draw { stroke-dasharray: 48; stroke-dashoffset: 48; animation: onb-draw .5s .2s ease-out forwards; }
-        @media (prefers-reduced-motion: reduce) {
-            .onb-pop, .onb-draw { animation: none !important; }
-        }
+        .animate-ambient { animation: ambient 20s linear infinite; }
     </style>
 </head>
-<body class="relative min-h-screen overflow-x-hidden bg-[#FAFAF9] font-['Inter',sans-serif] text-[#16161A] antialiased">
+<body class="h-screen w-screen overflow-hidden bg-[#FAFAF9] font-['Inter',sans-serif] text-[#16161A] antialiased selection:bg-indigo-500/30">
 
-    {{-- decorative background: soft gradient blobs + faint dot grid --}}
-    <div aria-hidden="true" class="pointer-events-none fixed inset-0 overflow-hidden">
-        <div class="absolute -left-32 -top-40 h-[420px] w-[420px] rounded-full bg-[#6E56CF] opacity-[0.10] blur-[110px]"></div>
-        <div class="absolute -bottom-40 -right-24 h-[380px] w-[380px] rounded-full bg-[#F5A667] opacity-[0.12] blur-[110px]"></div>
-        <div
-            class="absolute inset-0 opacity-40"
-            style="background-image:radial-gradient(#E4E4E7 1px, transparent 1px); background-size:28px 28px; mask-image:radial-gradient(ellipse 80% 55% at 50% 0%, black 35%, transparent 100%); -webkit-mask-image:radial-gradient(ellipse 80% 55% at 50% 0%, black 35%, transparent 100%);"
-        ></div>
-    </div>
+    <div {{ $attributes->merge(['class' => 'grid h-full w-full grid-cols-1 lg:grid-cols-[540px_1fr] relative']) }}>
+        
+        <!-- LEFT PANEL (Form & Guided Setup) -->
+        <!-- Removed overflow-y-auto from here. Made Header & Footer shrink-0 to pin them. -->
+        <div class="relative z-20 flex h-full w-full flex-col bg-white px-8 py-8 lg:px-14 lg:py-10 shadow-[20px_0_60px_-15px_rgba(0,0,0,0.05)] border-r border-gray-200/60 overflow-hidden">
+            
+            <!-- Header (Logo & Step) pinned to top -->
+            <header class="flex items-center justify-between animate-fade-in-down shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="flex h-8 w-8 items-center justify-center rounded-[8px] bg-indigo-600 text-[11px] font-bold text-white shadow-[0_2px_10px_rgba(79,70,229,0.3)]">IN</div>
+                    <span class="text-[14px] font-bold tracking-tight text-gray-900">INAMOR</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="h-1.5 w-8 rounded-full {{ request()->routeIs('onboarding.identity*') ? 'bg-indigo-600' : 'bg-gray-100' }} transition-colors duration-500"></div>
+                    <div class="h-1.5 w-8 rounded-full {{ request()->routeIs('onboarding.privacy*') ? 'bg-indigo-600' : 'bg-gray-100' }} transition-colors duration-500"></div>
+                    <div class="h-1.5 w-8 rounded-full {{ request()->routeIs('onboarding.knowledge*') ? 'bg-indigo-600' : 'bg-gray-100' }} transition-colors duration-500"></div>
+                </div>
+            </header>
 
-    <div class="relative flex min-h-screen flex-col">
-
-        {{-- logo, top center — no dashboard nav/search/switcher --}}
-        <header class="flex items-center justify-center pt-10 md:pt-14">
-            <a href="/" class="flex items-center gap-2.5">
-                <span class="flex h-9 w-9 items-center justify-center rounded-[10px] bg-gradient-to-br from-[#6E56CF] to-[#8B7CE8] font-['IBM_Plex_Mono',monospace] text-[13px] font-semibold text-white shadow-[0_2px_6px_rgba(110,86,207,0.35)]">IN</span>
-                <span class="text-[15px] font-semibold tracking-tight text-[#16161A]">INAMOR</span>
-            </a>
-        </header>
-
-        {{-- centered container — page content goes here via the default slot --}}
-        <main class="flex flex-1 items-center justify-center px-4 py-10 md:py-14">
-            <div class="w-full">
+            <!-- Main Form Content -->
+            <!-- flex-1 + min-h-0 forces this container to take exact remaining space without pushing footer out. -->
+            <!-- pt-8 pushes content down aesthetically without using justify-center (which causes clipping). -->
+            <main class="flex-1 flex flex-col min-h-0 overflow-y-auto custom-scroll pt-8 lg:pt-10 pb-4">
                 {{ $slot }}
-            </div>
-        </main>
+            </main>
 
-      
+            <!-- Footer pinned to bottom -->
+            <footer class="mt-4 lg:mt-6 shrink-0">
+                {{ $footer ?? '' }}
+            </footer>
+        </div>
+
+        <!-- RIGHT PANEL (Live Interactive Preview) -->
+        <div class="relative z-10 hidden lg:flex h-full w-full items-center justify-center overflow-hidden bg-[#FAFAF9]">
+            
+            <div class="pointer-events-none absolute inset-0 overflow-hidden mix-blend-multiply">
+                <div class="absolute -left-[10%] top-[10%] h-[600px] w-[600px] rounded-full bg-indigo-400/10 blur-[120px] animate-ambient"></div>
+                <div class="absolute -right-[10%] bottom-[10%] h-[500px] w-[500px] rounded-full bg-blue-400/10 blur-[100px] animate-ambient" style="animation-direction: reverse;"></div>
+                <div class="absolute inset-0 opacity-[0.25]" style="background-image:radial-gradient(#94A3B8 1px, transparent 1px); background-size:32px 32px; mask-image:radial-gradient(ellipse 90% 90% at 50% 50%, black 20%, transparent 100%); -webkit-mask-image:radial-gradient(ellipse 90% 90% at 50% 50%, black 20%, transparent 100%);"></div>
+            </div>
+
+            <div class="relative z-10 w-full max-w-[700px] px-12 perspective-[1000px]">
+                {{ $preview ?? '' }}
+            </div>
+            
+        </div>
     </div>
 </body>
 </html>

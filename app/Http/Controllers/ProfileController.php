@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
+use App\Services\UserProfileService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -11,40 +12,88 @@ use Illuminate\View\View;
 
 class ProfileController extends Controller
 {
-    /**
-     * Display the user's profile form.
-     */
-    public function edit(Request $request): View
-    {
-        return view('profile.edit', [
-            'user' => $request->user(),
-        ]);
+    public function __construct(
+        protected UserProfileService $userProfileService,
+    ) {
     }
 
     /**
-     * Update the user's profile information.
+     * Display profile page.
      */
-    public function update(ProfileUpdateRequest $request): RedirectResponse
-    {
-        $request->user()->fill($request->validated());
+    public function edit(
+        Request $request,
+    ): View {
 
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
+        return view(
+            'profile.edit',
+            [
+                'user' => $request->user(),
+            ],
+        );
+    }
+
+    /**
+     * Update profile.
+     */
+    public function update(
+        ProfileUpdateRequest $request,
+    ): RedirectResponse {
+
+        $user = $request->user();
+
+        $data = $request->validated();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Avatar Upload
+        |--------------------------------------------------------------------------
+        */
+
+        if ($request->hasFile('avatar')) {
+            $data['avatar'] = $request->file('avatar');
         }
 
-        $request->user()->save();
+        /*
+        |--------------------------------------------------------------------------
+        | Reset email verification if email changed
+        |--------------------------------------------------------------------------
+        */
 
-        return Redirect::route('profile.edit')->with('status', 'profile-updated');
+        if (
+            $user->email !== $data['email']
+        ) {
+            $data['email_verified_at'] = null;
+        }
+
+        $this->userProfileService->update(
+            $user,
+            $data,
+        );
+
+        return Redirect::route(
+            'profile.edit'
+        )->with(
+            'status',
+            'profile-updated',
+        );
     }
 
     /**
-     * Delete the user's account.
+     * Delete account.
      */
-    public function destroy(Request $request): RedirectResponse
-    {
-        $request->validateWithBag('userDeletion', [
-            'password' => ['required', 'current_password'],
-        ]);
+    public function destroy(
+        Request $request,
+    ): RedirectResponse {
+
+        $request->validateWithBag(
+            'userDeletion',
+            [
+                'password' => [
+                    'required',
+                    'current_password',
+                ],
+            ],
+        );
 
         $user = $request->user();
 
@@ -53,8 +102,28 @@ class ProfileController extends Controller
         $user->delete();
 
         $request->session()->invalidate();
+
         $request->session()->regenerateToken();
 
         return Redirect::to('/');
     }
+    public function show(
+    string $username,
+): View {
+
+   $user = $this->userProfileService
+    ->findByUsername(
+        $username
+    );
+
+abort_if(
+    ! $user,
+    404,
+);
+
+return view(
+    'people.show',
+    compact('user'),
+);
+}
 }

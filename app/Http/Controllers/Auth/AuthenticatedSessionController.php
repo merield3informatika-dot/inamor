@@ -28,7 +28,27 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        /*
+        |--------------------------------------------------------------------------
+        | Workspace Invitation Redirect
+        |--------------------------------------------------------------------------
+        */
+
+        if ($request->session()->has('workspace_invitation_token')) {
+
+            $token = $request->session()->pull(
+                'workspace_invitation_token'
+            );
+
+            return redirect()->route(
+                'workspace.invitation.accept',
+                $token
+            );
+        }
+
+        return redirect()->intended(
+            route('dashboard', absolute: false)
+        );
     }
 
     /**

@@ -8,16 +8,14 @@ use Symfony\Component\HttpFoundation\Response;
 
 class EnsureWorkspaceExists
 {
-    /**
-     * Handle an incoming request.
-     */
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
 
-       if (! $user->current_workspace_id) {
-    return redirect()->route('onboarding.identity');
-}
+        if (! $user->current_workspace_id) {
+            return redirect()->route('onboarding.identity');
+        }
+
         return $next($request);
     }
 }

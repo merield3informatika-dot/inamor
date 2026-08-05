@@ -10,7 +10,11 @@ final class WorkspaceResolver
 {
     public function resolve(User $user): Workspace
     {
-        $membership = $user->workspaceMemberships()->first();
+        if ($user->currentWorkspace) {
+            return $user->currentWorkspace;
+        }
+
+        $membership = $user->workspaceMemberships()->oldest('id')->first();
 
         if (! $membership) {
             throw new RuntimeException(sprintf(
@@ -18,6 +22,10 @@ final class WorkspaceResolver
                 $user->id
             ));
         }
+
+        $user->update([
+            'current_workspace_id' => $membership->workspace_id,
+        ]);
 
         return $membership->workspace;
     }

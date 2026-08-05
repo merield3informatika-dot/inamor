@@ -10,26 +10,50 @@ class OnboardingController extends Controller
     private const SESSION_KEY = 'onboarding';
 
     public function __construct(
-        protected WorkspaceService $workspaceService
-    ) {}
-
- public function identity(Request $request)
-{
-    if ($request->user()->current_workspace_id) {
-        return redirect()->route('dashboard');
+        protected WorkspaceService $workspaceService,
+    ) {
     }
 
-    return view('onboarding.identity', [
-        'identity' => session(self::SESSION_KEY . '.identity', []),
-    ]);
-}
+    /**
+     * Step 1 - Identity
+     */
+    public function identity()
+    {
+        return view('onboarding.identity', [
+            'identity' => session(self::SESSION_KEY . '.identity', []),
+        ]);
+    }
 
+    /**
+     * Store Identity
+     */
     public function storeIdentity(Request $request)
     {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'bio' => ['nullable', 'string', 'max:500'],
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+
+            'bio' => [
+                'nullable',
+                'string',
+                'max:500',
+            ],
+
+            'logo' => [
+                'nullable',
+                'image',
+                'max:5120',
+            ],
         ]);
+
+        if ($request->hasFile('logo')) {
+            $validated['logo'] = $request
+                ->file('logo')
+                ->store('workspaces', 'public');
+        }
 
         session([
             self::SESSION_KEY . '.identity' => $validated,
@@ -38,6 +62,9 @@ class OnboardingController extends Controller
         return redirect()->route('onboarding.privacy');
     }
 
+    /**
+     * Step 2 - Privacy
+     */
     public function privacy()
     {
         return view('onboarding.privacy', [
@@ -45,10 +72,16 @@ class OnboardingController extends Controller
         ]);
     }
 
+    /**
+     * Store Privacy
+     */
     public function storePrivacy(Request $request)
     {
         $validated = $request->validate([
-            'visibility' => ['required', 'in:public,private'],
+            'visibility' => [
+                'required',
+                'in:public,private',
+            ],
         ]);
 
         session([
@@ -58,6 +91,9 @@ class OnboardingController extends Controller
         return redirect()->route('onboarding.knowledge');
     }
 
+    /**
+     * Step 3 - Knowledge
+     */
     public function knowledge()
     {
         return view('onboarding.knowledge', [
@@ -65,6 +101,9 @@ class OnboardingController extends Controller
         ]);
     }
 
+    /**
+     * Finish Onboarding
+     */
     public function storeKnowledge(Request $request)
     {
         $identity = session(self::SESSION_KEY . '.identity');
@@ -76,7 +115,12 @@ class OnboardingController extends Controller
 
         $this->workspaceService->create(
             $request->user(),
-            $identity['name']
+            [
+                'name' => $identity['name'],
+                'description' => $identity['bio'] ?? null,
+                'logo' => $identity['logo'] ?? null,
+                'visibility' => $privacy['visibility'],
+            ]
         );
 
         $request->session()->forget(self::SESSION_KEY);
