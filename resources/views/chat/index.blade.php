@@ -167,14 +167,48 @@ document.addEventListener('DOMContentLoaded', () => {
                 data.reply ??
                 data.message ??
                 'Informasi tidak ditemukan.';
+const sources = data.sources ?? [];
+           chatBox.insertAdjacentHTML('beforeend', `
+<div class="flex justify-start">
 
-            chatBox.insertAdjacentHTML('beforeend', `
-                <div class="flex justify-start">
-                    <div class="bg-gray-100 rounded-xl px-4 py-3 max-w-[80%] whitespace-pre-wrap">
-                        ${escapeHTML(answer)}
+    <div class="bg-gray-100 rounded-xl px-4 py-3 max-w-[80%]">
+
+        <div class="whitespace-pre-wrap">
+            ${escapeHTML(answer)}
+        </div>
+
+        ${
+            sources.length
+            ? `
+                <div class="mt-4 pt-3 border-t border-gray-200">
+
+                    <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                        Sources
                     </div>
+
+                    <div class="flex flex-wrap gap-2">
+
+                        ${sources.map(source => `
+                            <div class="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700">
+
+                                <span>📄</span>
+
+                                <span>${escapeHTML(source)}</span>
+
+                            </div>
+                        `).join('')}
+
+                    </div>
+
                 </div>
-            `);
+            `
+            : ''
+        }
+
+    </div>
+
+</div>
+`);
 
         } catch (err) {
 

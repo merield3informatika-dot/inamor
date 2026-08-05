@@ -9,17 +9,29 @@ final class KnowledgeAnswer
      */
     public function __construct(
         public readonly string $answer,
-        public readonly array $sources,
+
+        public readonly array $sources = [],
+
+        public readonly ?float $confidence = null,
     ) {}
 
     /**
-     * @return array{answer: string, sources: array<int, string>}
+     * @return array{
+     *     answer:string,
+     *     sources:array<int,string>,
+     *     confidence:float|null
+     * }
      */
     public function toArray(): array
     {
         return [
-            'answer'  => $this->answer,
+
+            'answer' => $this->answer,
+
             'sources' => $this->sources,
+
+            'confidence' => $this->confidence,
+
         ];
     }
 }

@@ -49,10 +49,17 @@ final class KnowledgeService
                 question: $question,
             );
 
-            return new KnowledgeAnswer(
-                answer: $this->notFoundAnswer,
-                sources: [],
-            );
+           return new KnowledgeAnswer(
+    answer: $answer,
+
+    sources: $documents
+        ->pluck('title')
+        ->unique()
+        ->values()
+        ->all(),
+
+    confidence: null,
+);
         }
 
         /*
