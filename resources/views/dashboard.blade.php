@@ -5,7 +5,7 @@
         <h2 class="text-[28px] md:text-[32px] font-bold text-gray-900 tracking-tight">
             Selamat datang, <span class="text-blue-600">{{ explode(' ', auth()->user()->name ?? 'Pengguna')[0] }}!</span> <span class="inline-block origin-bottom-right hover:animate-wave cursor-default">👋</span>
         </h2>
-        <p class="text-[14px] md:text-[15px] text-gray-500 mt-1">Inamor siap membantu pekerjaan Anda hari ini dengan AI yang cerdas dan aman.</p>
+        <p class="text-[14px] md:text-[15px] text-gray-500 mt-1">Have fun</p>
     </div>
 
     <!-- Dashboard Layout Grid -->
@@ -25,6 +25,7 @@
                 <x-dashboard.recent-documents :documents="$recentDocuments ?? []" />
                 
                 <x-dashboard.recent-activities :activities="$recentActivities ?? []" />
+              
             </div>
 
         </div>
@@ -36,6 +37,8 @@
                 :announcements="$announcements ?? []" 
                 :stats="$serviceStats ?? []" 
             />
+            
+             <x-dashboard.ai-engine :analytics="$analytics ?? []" />
         </div>
 
     </div>

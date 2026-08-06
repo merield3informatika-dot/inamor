@@ -5,7 +5,11 @@ namespace App\DataTransferObjects;
 final class KnowledgeAnswer
 {
     /**
-     * @param array<int, string> $sources
+     * @param array<int, array{
+     *     id:int,
+     *     title:string,
+     *     score:float
+     * }> $sources
      */
     public function __construct(
         public readonly string $answer,
@@ -15,13 +19,6 @@ final class KnowledgeAnswer
         public readonly ?float $confidence = null,
     ) {}
 
-    /**
-     * @return array{
-     *     answer:string,
-     *     sources:array<int,string>,
-     *     confidence:float|null
-     * }
-     */
     public function toArray(): array
     {
         return [

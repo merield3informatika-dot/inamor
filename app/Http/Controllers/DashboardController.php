@@ -8,13 +8,15 @@ use App\Models\ManualKnowledge;
 use App\Services\WorkspaceService;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use App\Services\AI\AIAnalyticsService;
 
 class DashboardController extends Controller
 {
-    public function __construct(
-        private readonly WorkspaceService $workspaceService
-    ) {
-    }
+   public function __construct(
+    private readonly WorkspaceService $workspaceService,
+    private readonly AIAnalyticsService $analyticsService,
+) {
+}
 
     public function index(Request $request): View
     {
@@ -88,21 +90,17 @@ class DashboardController extends Controller
         */
 
         $serviceStats = collect();
+  $analytics = $this->analyticsService->statistics();
 
-        return view('dashboard', [
-            'workspace' => $workspace,
-
-            'stats' => $stats,
-
-            'upcomingEvents' => $upcomingEvents,
-
-            'recentDocuments' => $recentDocuments,
-
-            'recentActivities' => $recentActivities,
-
-            'announcements' => $announcements,
-
-            'serviceStats' => $serviceStats,
-        ]);
+return view('dashboard', [
+    'workspace' => $workspace,
+    'stats' => $stats,
+    'upcomingEvents' => $upcomingEvents,
+    'recentDocuments' => $recentDocuments,
+    'recentActivities' => $recentActivities,
+    'announcements' => $announcements,
+    'serviceStats' => $serviceStats,
+    'analytics' => $analytics,
+]);
     }
 }

@@ -232,6 +232,10 @@ Route::get(
     '/people/{username}',
     [ProfileController::class, 'show']
 )->name('people.show');
+Route::view(
+    '/ai/analytics',
+    'ai.analytics'
+)->name('ai.analytics');
 
 /*
 |--------------------------------------------------------------------------
