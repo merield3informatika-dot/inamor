@@ -2,18 +2,20 @@
 
 namespace App\Services\Document;
 
+use App\Exceptions\Document\ExtractionFailedException;
 use App\Models\Document;
 use App\Repositories\DocumentRepository;
+use App\Services\Document\Extraction\DocumentExtractor;
 use App\Services\KnowledgeMemory\KnowledgeExtractorService;
 use App\Services\KnowledgeMemory\KnowledgeMemoryService;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Smalot\PdfParser\Parser;
 use Throwable;
 
 final class DocumentProcessorService
 {
     public function __construct(
-        private readonly Parser $parser,
+        private readonly DocumentExtractor $documentExtractor,
         private readonly DocumentRepository $documentRepository,
         private readonly KnowledgeExtractorService $knowledgeExtractor,
         private readonly KnowledgeMemoryService $knowledgeMemoryService,
@@ -26,15 +28,23 @@ final class DocumentProcessorService
 
             /*
             |--------------------------------------------------------------------------
-            | Parse PDF
+            | Extract (routes to the correct extractor: pdf/docx/xlsx/csv/pptx/txt/ocr)
             |--------------------------------------------------------------------------
             */
 
-            $pdf = $this->parser->parseFile(
-                Storage::disk('local')->path($document->file_path)
+            $extracted = $this->documentExtractor->extract(
+                Storage::disk('local')->path($document->file_path),
+                $document->mime_type,
+                $document->file_name,
             );
 
-            $rawText = trim($pdf->getText());
+            if (trim($extracted->text) === '') {
+
+                throw new ExtractionFailedException(
+                    'Tidak ada teks yang dapat diekstrak dari dokumen ini.'
+                );
+
+            }
 
             /*
             |--------------------------------------------------------------------------
@@ -43,24 +53,35 @@ final class DocumentProcessorService
             */
 
             $this->documentRepository->createContent($document, [
-                'raw_text'   => $rawText,
-                'page_count' => count($pdf->getPages()),
+
+                'raw_text' => $extracted->text,
+
+                'page_count' => (int) ($extracted->metadata['page_count'] ?? 0),
+
+                'extraction_method' => $extracted->extractionMethod,
+
+                'ocr_used' => (bool) ($extracted->metadata['ocr_used'] ?? false),
+
+                'confidence' => $extracted->confidence,
+
+                'metadata' => $extracted->metadata,
+
             ]);
 
             /*
             |--------------------------------------------------------------------------
-            | AI Knowledge Extraction
+            | AI Knowledge Extraction (existing pipeline, untouched)
             |--------------------------------------------------------------------------
             */
 
             $memories = $this->knowledgeExtractor->extract(
                 title: $document->title,
-                rawText: $rawText,
+                rawText: $extracted->text,
             );
 
             /*
             |--------------------------------------------------------------------------
-            | Save Knowledge Memories
+            | Save Knowledge Memories (existing pipeline, untouched)
             |--------------------------------------------------------------------------
             */
 
@@ -103,6 +124,15 @@ final class DocumentProcessorService
             $this->documentRepository->markAsReady($document);
 
         } catch (Throwable $e) {
+
+            Log::error('Document processing failed', [
+                'document_id' => $document->id,
+                'workspace_id' => $document->workspace_id,
+                'mime_type' => $document->mime_type,
+                'exception_type' => get_class($e),
+                'message' => $e->getMessage(),
+                'stage' => 'extraction_or_knowledge',
+            ]);
 
             $this->documentRepository->markAsFailed($document);
 

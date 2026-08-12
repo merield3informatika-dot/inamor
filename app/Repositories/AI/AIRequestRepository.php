@@ -20,30 +20,31 @@ final class AIRequestRepository
     /**
      * Total requests.
      */
-    public function count(): int
+    public function count(int $workspaceId): int
     {
-        return AIRequest::count();
+        return AIRequest::query()
+            ->where('workspace_id', $workspaceId)
+            ->count();
     }
 
     /**
      * Total requests today.
      */
-    public function countToday(): int
+    public function countToday(int $workspaceId): int
     {
         return AIRequest::query()
-            ->whereDate(
-                'created_at',
-                today()
-            )
+            ->where('workspace_id', $workspaceId)
+            ->whereDate('created_at', today())
             ->count();
     }
 
     /**
      * Count by engine.
      */
-    public function countByEngine(string $engine): int
+    public function countByEngine(int $workspaceId, string $engine): int
     {
         return AIRequest::query()
+            ->where('workspace_id', $workspaceId)
             ->where('engine', $engine)
             ->count();
     }
@@ -51,23 +52,22 @@ final class AIRequestRepository
     /**
      * Count by engine today.
      */
-    public function countTodayByEngine(string $engine): int
+    public function countTodayByEngine(int $workspaceId, string $engine): int
     {
         return AIRequest::query()
+            ->where('workspace_id', $workspaceId)
             ->where('engine', $engine)
-            ->whereDate(
-                'created_at',
-                today()
-            )
+            ->whereDate('created_at', today())
             ->count();
     }
 
     /**
      * Count by status.
      */
-    public function countByStatus(string $status): int
+    public function countByStatus(int $workspaceId, string $status): int
     {
         return AIRequest::query()
+            ->where('workspace_id', $workspaceId)
             ->where('status', $status)
             ->count();
     }
@@ -75,23 +75,22 @@ final class AIRequestRepository
     /**
      * Count by status today.
      */
-    public function countTodayByStatus(string $status): int
+    public function countTodayByStatus(int $workspaceId, string $status): int
     {
         return AIRequest::query()
+            ->where('workspace_id', $workspaceId)
             ->where('status', $status)
-            ->whereDate(
-                'created_at',
-                today()
-            )
+            ->whereDate('created_at', today())
             ->count();
     }
 
     /**
      * Average latency.
      */
-    public function averageLatency(): ?float
+    public function averageLatency(int $workspaceId): ?float
     {
         return AIRequest::query()
+            ->where('workspace_id', $workspaceId)
             ->whereNotNull('latency')
             ->avg('latency');
     }
@@ -99,23 +98,22 @@ final class AIRequestRepository
     /**
      * Average latency today.
      */
-    public function averageLatencyToday(): ?float
+    public function averageLatencyToday(int $workspaceId): ?float
     {
         return AIRequest::query()
+            ->where('workspace_id', $workspaceId)
             ->whereNotNull('latency')
-            ->whereDate(
-                'created_at',
-                today()
-            )
+            ->whereDate('created_at', today())
             ->avg('latency');
     }
 
     /**
      * Latest request.
      */
-    public function latest(): ?AIRequest
+    public function latest(int $workspaceId): ?AIRequest
     {
         return AIRequest::query()
+            ->where('workspace_id', $workspaceId)
             ->latest()
             ->first();
     }
@@ -123,9 +121,10 @@ final class AIRequestRepository
     /**
      * Latest failed request.
      */
-    public function latestFailed(): ?AIRequest
+    public function latestFailed(int $workspaceId): ?AIRequest
     {
         return AIRequest::query()
+            ->where('workspace_id', $workspaceId)
             ->where('status', 'failed')
             ->latest()
             ->first();
@@ -134,9 +133,10 @@ final class AIRequestRepository
     /**
      * Latest quota exceeded.
      */
-    public function latestQuota(): ?AIRequest
+    public function latestQuota(int $workspaceId): ?AIRequest
     {
         return AIRequest::query()
+            ->where('workspace_id', $workspaceId)
             ->where('status', 'quota')
             ->latest()
             ->first();
@@ -145,9 +145,10 @@ final class AIRequestRepository
     /**
      * Latest timeout.
      */
-    public function latestTimeout(): ?AIRequest
+    public function latestTimeout(int $workspaceId): ?AIRequest
     {
         return AIRequest::query()
+            ->where('workspace_id', $workspaceId)
             ->where('status', 'timeout')
             ->latest()
             ->first();
@@ -158,11 +159,10 @@ final class AIRequestRepository
      *
      * @return Collection<int,AIRequest>
      */
-    public function latestRequests(
-        int $limit = 10,
-    ): Collection {
-
+    public function latestRequests(int $workspaceId, int $limit = 10): Collection
+    {
         return AIRequest::query()
+            ->where('workspace_id', $workspaceId)
             ->latest()
             ->limit($limit)
             ->get();

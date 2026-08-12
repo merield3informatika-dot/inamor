@@ -5,22 +5,38 @@ namespace App\Http\Controllers;
 use App\Models\CalendarEvent;
 use App\Models\KnowledgeFeedback;
 use App\Models\ManualKnowledge;
+use App\Services\Announcement\AnnouncementService;
+use App\Services\AI\AIAnalyticsService;
 use App\Services\WorkspaceService;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
-use App\Services\AI\AIAnalyticsService;
 
 class DashboardController extends Controller
 {
-   public function __construct(
-    private readonly WorkspaceService $workspaceService,
-    private readonly AIAnalyticsService $analyticsService,
-) {
-}
+    public function __construct(
+        private readonly WorkspaceService $workspaceService,
+        private readonly AIAnalyticsService $analyticsService,
+        private readonly AnnouncementService $announcementService,
+    ) {
+    }
 
     public function index(Request $request): View
     {
-        $workspace = $this->workspaceService->resolveActive($request->user());
+        /*
+        |--------------------------------------------------------------------------
+        | Active Workspace
+        |--------------------------------------------------------------------------
+        */
+
+        $workspace = $this->workspaceService->resolveActive(
+            $request->user()
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Dashboard Stats
+        |--------------------------------------------------------------------------
+        */
 
         $stats = [
             'document_count_today' => $workspace->documents()
@@ -32,7 +48,9 @@ class DashboardController extends Controller
                 ->where('status', 'pending')
                 ->count(),
 
-            'announcement_count' => 0,
+            'announcement_count' => $workspace->announcements()
+                ->published()
+                ->count(),
 
             'manual_knowledge_count' => ManualKnowledge::query()
                 ->where('workspace_id', $workspace->id)
@@ -41,7 +59,7 @@ class DashboardController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Upcoming Events
+        | Upcoming Calendar Events
         |--------------------------------------------------------------------------
         */
 
@@ -67,8 +85,10 @@ class DashboardController extends Controller
         |--------------------------------------------------------------------------
         | Recent Activities
         |--------------------------------------------------------------------------
-        | Belum ada ActivityLog.
-        | Sementara kirim collection kosong supaya widget tetap aman.
+        |
+        | ActivityLog belum digunakan pada dashboard saat ini.
+        | Tetap kirim collection kosong supaya component aman.
+        |
         */
 
         $recentActivities = collect();
@@ -77,30 +97,115 @@ class DashboardController extends Controller
         |--------------------------------------------------------------------------
         | Announcements
         |--------------------------------------------------------------------------
-        | Belum ada modul Announcement.
+        |
+        | Menampilkan pengumuman published terbaru untuk workspace aktif.
+        |
         */
 
-        $announcements = collect();
+        $announcements = $this->announcementService
+            ->list($workspace, onlyPublished: true)
+            ->take(3);
+
+        /*
+        |--------------------------------------------------------------------------
+        | AI Analytics
+        |--------------------------------------------------------------------------
+        |
+        | IMPORTANT:
+        | Analytics harus dibatasi berdasarkan workspace aktif.
+        |
+        | Data ini digunakan oleh:
+        | - Statistik Layanan
+        | - AI Engine
+        | - Mini chart dashboard
+        | - AI Analytics detail
+        |
+        */
+
+        $analytics = $this->analyticsService->statistics(
+            $workspace->id
+        );
 
         /*
         |--------------------------------------------------------------------------
         | Service Statistics
         |--------------------------------------------------------------------------
-        | Belum ada modul statistik.
+        |
+        | Jangan bikin dummy.
+        |
+        | Data statistik sidebar akan membaca langsung dari
+        | AI Analytics yang berasal dari database.
+        |
         */
 
-        $serviceStats = collect();
-  $analytics = $this->analyticsService->statistics();
+        $overview = $analytics['overview'] ?? [];
 
-return view('dashboard', [
-    'workspace' => $workspace,
-    'stats' => $stats,
-    'upcomingEvents' => $upcomingEvents,
-    'recentDocuments' => $recentDocuments,
-    'recentActivities' => $recentActivities,
-    'announcements' => $announcements,
-    'serviceStats' => $serviceStats,
-    'analytics' => $analytics,
-]);
+        $serviceStats = collect([
+            (object) [
+                'label' => 'AI Requests',
+                'value' => number_format(
+                    (int) ($overview['requests_today'] ?? 0)
+                ),
+                'meta' => 'hari ini',
+            ],
+
+            (object) [
+                'label' => 'Success Rate',
+                'value' => ($overview['success_rate'] ?? 0) . '%',
+                'meta' => 'request berhasil',
+            ],
+
+            (object) [
+                'label' => 'Response',
+                'value' => number_format(
+                    (int) ($overview['today_avg_response_ms'] ?? 0)
+                ) . ' ms',
+                'meta' => 'rata-rata hari ini',
+            ],
+
+            (object) [
+                'label' => 'AI Saved',
+                'value' => ($overview['ai_saved_pct'] ?? 0) . '%',
+                'meta' => 'efisiensi AI',
+            ],
+        ]);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Performance Data
+        |--------------------------------------------------------------------------
+        |
+        | Dipisahkan supaya component dashboard bisa langsung
+        | menggunakan data 7 hari terakhir untuk mini chart.
+        |
+        */
+
+        $performance = $analytics['performance']['requests'] ?? [];
+
+        /*
+        |--------------------------------------------------------------------------
+        | Return Dashboard
+        |--------------------------------------------------------------------------
+        */
+
+        return view('dashboard', [
+            'workspace' => $workspace,
+
+            'stats' => $stats,
+
+            'upcomingEvents' => $upcomingEvents,
+
+            'recentDocuments' => $recentDocuments,
+
+            'recentActivities' => $recentActivities,
+
+            'announcements' => $announcements,
+
+            'serviceStats' => $serviceStats,
+
+            'analytics' => $analytics,
+
+            'performance' => $performance,
+        ]);
     }
 }

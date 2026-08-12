@@ -15,6 +15,7 @@ class ManualKnowledgeService
     public function __construct(
         protected WorkspaceResolver $workspaceResolver,
         protected ManualKnowledgeRepository $manualKnowledgeRepository,
+        protected ManualKnowledgeSyncService $syncService,
     ) {
     }
 
@@ -31,8 +32,8 @@ class ManualKnowledgeService
             $content,
             $feedback
         ) {
-
-            $manualKnowledge = ManualKnowledge::create([
+            // Menggunakan Repository Pattern, BUKAN memanggil ManualKnowledge::create
+            $manualKnowledge = $this->manualKnowledgeRepository->create([
                 'workspace_id' => $this->workspaceResolver->resolveId($user),
                 'created_by'   => $user->id,
                 'title'        => $title,
@@ -43,6 +44,9 @@ class ManualKnowledgeService
             if ($feedback) {
                 $feedback->markAsResolved();
             }
+
+            // Jalankan sinkronisasi ke KnowledgeMemory
+            $this->syncService->sync($manualKnowledge);
 
             return $manualKnowledge;
         });
@@ -55,7 +59,6 @@ class ManualKnowledgeService
         return $this->manualKnowledgeRepository->getByWorkspace(
             $this->workspaceResolver->resolveId($user)
         );
-
     }
 
     public function update(
@@ -63,20 +66,32 @@ class ManualKnowledgeService
         array $data
     ): bool {
 
-        return $this->manualKnowledgeRepository->update(
-            $knowledge,
-            $data
-        );
+        return DB::transaction(function () use ($knowledge, $data) {
+            // Simpan perubahan utama
+            $updated = $this->manualKnowledgeRepository->update(
+                $knowledge,
+                $data
+            );
 
+            // Sinkronisasi data terbaru (fresh) ke KnowledgeMemory
+            $this->syncService->sync($knowledge->fresh());
+
+            return $updated;
+        });
     }
 
     public function delete(
         ManualKnowledge $knowledge
     ): bool {
 
-        return $this->manualKnowledgeRepository->delete(
-            $knowledge
-        );
+        return DB::transaction(function () use ($knowledge) {
+            // Hapus dari KnowledgeMemory dan Alias terlebih dahulu
+            $this->syncService->remove($knowledge);
 
+            // Hapus dari ManualKnowledge
+            return $this->manualKnowledgeRepository->delete(
+                $knowledge
+            );
+        });
     }
 }

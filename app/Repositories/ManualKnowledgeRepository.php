@@ -7,6 +7,17 @@ use Illuminate\Database\Eloquent\Collection;
 
 class ManualKnowledgeRepository
 {
+    /**
+     * Create new manual knowledge.
+     */
+    public function create(array $data): ManualKnowledge
+    {
+        return ManualKnowledge::create($data);
+    }
+
+    /**
+     * Search manual knowledge by keywords.
+     */
     public function searchKnowledge(
         int $workspaceId,
         array $keywords
@@ -30,6 +41,9 @@ class ManualKnowledgeRepository
         return $query->get();
     }
 
+    /**
+     * Get all manual knowledge in workspace.
+     */
     public function getByWorkspace(
         int $workspaceId
     ): Collection {
@@ -41,6 +55,9 @@ class ManualKnowledgeRepository
 
     }
 
+    /**
+     * Find specific manual knowledge in workspace.
+     */
     public function findByWorkspace(
         int $workspaceId,
         int $knowledgeId
@@ -52,6 +69,9 @@ class ManualKnowledgeRepository
 
     }
 
+    /**
+     * Update manual knowledge.
+     */
     public function update(
         ManualKnowledge $knowledge,
         array $data
@@ -61,6 +81,9 @@ class ManualKnowledgeRepository
 
     }
 
+    /**
+     * Delete manual knowledge.
+     */
     public function delete(
         ManualKnowledge $knowledge
     ): bool {

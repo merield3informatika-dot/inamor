@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AIController;
+use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
@@ -9,12 +10,18 @@ use App\Http\Controllers\Knowledge\ManualKnowledgeController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Workspace\WorkspaceInvitationController;
+use App\Http\Controllers\WorkspaceChatController;
 use App\Http\Controllers\WorkspaceController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Workspace\WorkspaceJoinRequestController;
 use App\Http\Controllers\Workspace\WorkspaceMemberController;
 use App\Http\Controllers\Workspace\WorkspaceRoleController;
-
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\MobileController;
+use App\Http\Controllers\MobileCalendarController;
+use App\Http\Controllers\MobileAIController;
+use App\Http\Controllers\MobileChatController;
+use App\Http\Controllers\MobileAccountController;
 
 Route::get('/', function () {
     if (auth()->check()) {
@@ -30,7 +37,57 @@ Route::get('/get-started', function () {
 
 Route::post('/ai/chat', [AIController::class, 'chat']);
 
+
+/*
+|--------------------------------------------------------------------------
+| Mobile
+|--------------------------------------------------------------------------
+*/
+
 Route::middleware(['auth', 'verified'])->group(function () {
+
+    Route::get('/mobile', [MobileController::class, 'home'])
+        ->name('mobile.home');
+
+    Route::get('/mobile/calendar', [
+        MobileCalendarController::class,
+        'index',
+    ])->name('mobile.calendar');
+
+    Route::get('/mobile/ai', [
+        MobileAIController::class,
+        'index',
+    ])->name('mobile.ai');
+
+    Route::get('/mobile/chat', [
+        MobileChatController::class,
+        'index',
+    ])->name('mobile.chat');
+
+    Route::get('/mobile/chat/{conversation}', [
+        MobileChatController::class,
+        'show',
+    ])
+        ->whereNumber('conversation')
+        ->name('mobile.chat.show');
+
+    Route::post('/mobile/chat/{conversation}/messages', [
+        MobileChatController::class,
+        'sendMessage',
+    ])
+        ->whereNumber('conversation')
+        ->name('mobile.chat.messages.store');
+        Route::get('/mobile/account', [
+    MobileAccountController::class,
+    'index',
+])->name('mobile.account');
+Route::get('/mobile/account/edit', [
+    MobileAccountController::class,
+    'edit',
+])->name('mobile.account.edit');
+        
+
+
 
     /*
     |--------------------------------------------------------------------------
@@ -147,19 +204,85 @@ Route::middleware(['auth', 'verified', 'workspace'])->group(function () {
     [WorkspaceJoinRequestController::class, 'restore']
 )->name('restore');
         });
+/*
+|--------------------------------------------------------------------------
+| Dashboard
+|--------------------------------------------------------------------------
+*/
 
-    /*
-    |--------------------------------------------------------------------------
-    | Dashboard
-    |--------------------------------------------------------------------------
-    */
+Route::get('/dashboard', [DashboardController::class, 'index'])
+    ->name('dashboard');
 
-    Route::get('/dashboard', [DashboardController::class, 'index'])
-        ->name('dashboard');
 
-    Route::view('/chat', 'chat.index')
-        ->name('chat');
+/*
+|--------------------------------------------------------------------------
+| AI Assistant
+|--------------------------------------------------------------------------
+*/
 
+Route::get('/chat', function () {
+    return view('chat.index');
+})->name('chat');
+
+
+/*
+|--------------------------------------------------------------------------
+| Workspace Chat
+|--------------------------------------------------------------------------
+*/
+
+Route::get('/workspace/chat', [WorkspaceChatController::class, 'index'])
+    ->name('workspace.chat');
+
+Route::get('/workspace/chat/{conversation}', [
+    WorkspaceChatController::class,
+    'show',
+])
+    ->whereNumber('conversation')
+    ->name('workspace.chat.show');
+
+Route::post('/workspace/chat/{conversation}/messages', [
+    WorkspaceChatController::class,
+    'sendMessage',
+])
+    ->whereNumber('conversation')
+    ->name('workspace.chat.messages.store');
+/*
+|--------------------------------------------------------------------------
+| Notifications
+|--------------------------------------------------------------------------
+*/
+
+Route::prefix('notifications')
+    ->name('notifications.')
+    ->group(function () {
+
+
+        Route::get('/', [
+            NotificationController::class,
+            'index',
+        ])->name('index');
+
+
+
+        Route::get('/unread-count', [
+            NotificationController::class,
+            'unreadCount',
+        ])->name('unread-count');
+
+
+        Route::patch('/{notification}/read', [
+            NotificationController::class,
+            'markAsRead',
+        ])->name('read');
+
+
+        Route::patch('/read-all', [
+            NotificationController::class,
+            'markAllAsRead',
+        ])->name('read-all');
+
+    });
     /*
     |--------------------------------------------------------------------------
     | Profile
@@ -232,9 +355,10 @@ Route::get(
     '/people/{username}',
     [ProfileController::class, 'show']
 )->name('people.show');
-Route::view(
+
+Route::get(
     '/ai/analytics',
-    'ai.analytics'
+    [\App\Http\Controllers\AIAnalyticsController::class, 'index']
 )->name('ai.analytics');
 
 /*
@@ -253,7 +377,7 @@ Route::prefix('workspace/roles')
         ])->name('index');
 
     });
-    /*
+/*
     |--------------------------------------------------------------------------
     | Documents
     |--------------------------------------------------------------------------
@@ -264,8 +388,15 @@ Route::prefix('workspace/roles')
             'index',
             'create',
             'store',
+            'show',
+            'destroy'
         ]);
-
+        
+    Route::post('documents/{document}/archive', [DocumentController::class, 'archive'])
+        ->name('documents.archive');
+        
+    Route::post('documents/{document}/restore', [DocumentController::class, 'restore'])
+        ->name('documents.restore');
     /*
     |--------------------------------------------------------------------------
     | Knowledge
@@ -325,6 +456,25 @@ Route::prefix('workspace/roles')
             'update',
             'destroy',
         ]);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Announcements
+    |--------------------------------------------------------------------------
+    */
+
+    Route::resource('announcements', AnnouncementController::class)
+        ->only([
+            'index',
+            'create',
+            'store',
+            'edit',
+            'update',
+            'destroy',
+        ]);
+
+    Route::patch('announcements/{announcement}/publish', [AnnouncementController::class, 'publish'])
+        ->name('announcements.publish');
 });
 
 /*
@@ -339,6 +489,5 @@ Route::get('/invite/{token}', [
 ])->name('workspace.invitation.accept');
 
 
-    
 
 require __DIR__.'/auth.php';

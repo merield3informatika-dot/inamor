@@ -1,58 +1,266 @@
 <x-app-layout>
     
-    <!-- Welcome Heading -->
-    <div class="mb-6">
-        <h2 class="text-[28px] md:text-[32px] font-bold text-gray-900 tracking-tight">
-            Selamat datang, <span class="text-blue-600">{{ explode(' ', auth()->user()->name ?? 'Pengguna')[0] }}!</span> <span class="inline-block origin-bottom-right hover:animate-wave cursor-default">👋</span>
+@php
+    /*
+    |--------------------------------------------------------------------------
+    | Daily Dashboard Quote
+    |--------------------------------------------------------------------------
+    | 0 = Sunday
+    | 1 = Monday
+    | ...
+    | 6 = Saturday
+    */
+
+    $dailyQuotes = [
+        0 => [
+            'category' => 'MINGGU · RESET',
+            'quote' => 'Istirahat bukan berhenti. Besok kita lanjut lagi.',
+        ],
+
+        1 => [
+            'category' => 'SENIN · START',
+            'quote' => 'Tidak harus langsung jauh. Mulai saja dulu.',
+        ],
+
+        2 => [
+            'category' => 'SELASA · BUILD',
+            'quote' => 'Hal besar dibangun dari hal kecil yang terus dikerjakan.',
+        ],
+
+        3 => [
+            'category' => 'RABU · FOCUS',
+            'quote' => 'Tetap di jalur. Progress tidak selalu terlihat setiap hari.',
+        ],
+
+        4 => [
+            'category' => 'KAMIS · PROGRESS',
+            'quote' => 'Sedikit lebih baik dari kemarin sudah cukup.',
+        ],
+
+        5 => [
+            'category' => 'JUMAT · FINISH',
+            'quote' => 'Selesaikan yang penting. Sisanya bisa menunggu.',
+        ],
+
+        6 => [
+            'category' => 'SABTU · EXPLORE',
+            'quote' => 'Coba sesuatu yang baru. Tidak semua hal harus sempurna.',
+        ],
+    ];
+
+    $todayQuote = $dailyQuotes[now()->dayOfWeek];
+
+    /*
+    |--------------------------------------------------------------------------
+    | Display Name
+    |--------------------------------------------------------------------------
+    | Gunakan display_name jika nanti tersedia.
+    | Fallback ke nama depan dari nama akun.
+    */
+
+    $accountName = auth()->user()->name ?? 'Pengguna';
+
+    $userName = auth()->user()->display_name
+        ?? explode(' ', trim($accountName))[0];
+
+    $userName = trim($userName) !== ''
+        ? $userName
+        : 'Pengguna';
+@endphp
+
+
+{{-- ========================================================= --}}
+{{-- WELCOME --}}
+{{-- ========================================================= --}}
+
+<div class="mb-7">
+
+    <div class="flex items-center gap-2">
+
+        <h2 class="text-[28px] font-bold tracking-tight text-gray-900 md:text-[32px]">
+            Selamat datang,
+            <span class="text-blue-600">
+                {{ $userName }}
+            </span>
         </h2>
-        <p class="text-[14px] md:text-[15px] text-gray-500 mt-1">Have fun</p>
+
+        {{-- Subtle signature --}}
+        <span
+            class="mt-2 h-2 w-2 shrink-0 rounded-full bg-blue-500"
+        ></span>
+
     </div>
 
-    <!-- Dashboard Layout Grid -->
-    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        
-        <!-- Left Main Column (Hero, Quick Actions, Docs & Activity) -->
-        <div class="xl:col-span-2 flex flex-col gap-6">
-            
-            <x-dashboard.hero
-                :workspace="$workspace"
-                :stats="$stats"
+
+    <div class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+
+        {{-- Day category --}}
+        <span class="text-[10px] font-bold tracking-[0.12em] text-blue-600">
+            {{ $todayQuote['category'] }}
+        </span>
+
+        <span class="hidden h-1 w-1 rounded-full bg-gray-300 sm:block"></span>
+
+        {{-- Daily quote --}}
+        <p class="text-[14px] leading-relaxed text-gray-500 md:text-[15px]">
+            {{ $todayQuote['quote'] }}
+        </p>
+
+    </div>
+
+</div>
+
+
+{{-- ========================================================= --}}
+{{-- DASHBOARD LAYOUT --}}
+{{-- ========================================================= --}}
+
+<div class="grid grid-cols-1 gap-6 xl:grid-cols-3">
+
+
+    {{-- ===================================================== --}}
+    {{-- MAIN COLUMN --}}
+    {{-- ===================================================== --}}
+
+    <div class="flex flex-col gap-6 xl:col-span-2">
+
+
+        {{-- ================================================= --}}
+        {{-- HERO --}}
+        {{-- ================================================= --}}
+
+        <x-dashboard.hero
+            :workspace="$workspace"
+            :stats="$stats"
+        />
+
+
+        {{-- ================================================= --}}
+        {{-- QUICK ACTIONS --}}
+        {{-- ================================================= --}}
+
+        <x-dashboard.quick-actions />
+
+
+        {{-- ================================================= --}}
+        {{-- RECENT DOCUMENTS + ACTIVITIES --}}
+        {{-- ================================================= --}}
+
+        <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+
+            <x-dashboard.recent-documents
+                :documents="$recentDocuments ?? []"
             />
 
-            <x-dashboard.quick-actions />
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <x-dashboard.recent-documents :documents="$recentDocuments ?? []" />
-                
-                <x-dashboard.recent-activities :activities="$recentActivities ?? []" />
-              
-            </div>
-
-        </div>
-
-        <!-- Right Sidebar Column (Calendar, Announcements, Stats) -->
-        <div class="xl:col-span-1 flex flex-col gap-6">
-            <x-right-sidebar 
-                :events="$upcomingEvents ?? []" 
-                :announcements="$announcements ?? []" 
-                :stats="$serviceStats ?? []" 
+            <x-dashboard.recent-activities
+                :activities="$recentActivities ?? []"
             />
-            
-             <x-dashboard.ai-engine :analytics="$analytics ?? []" />
+
         </div>
 
     </div>
 
-    <!-- Footer -->
-    <div class="mt-8 pt-6 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <p class="text-[13px] text-gray-500">© {{ now()->year }} Inamor. All rights reserved.</p>
-        <div class="flex items-center gap-6 text-[13px] text-gray-500 font-medium">
-            <a href="#" class="hover:text-gray-900 transition-colors">Bantuan</a>
-            <span class="text-gray-300">•</span>
-            <a href="#" class="hover:text-gray-900 transition-colors">Kebijakan Privasi</a>
-            <span class="text-gray-300">•</span>
-            <a href="#" class="hover:text-gray-900 transition-colors">Syarat & Ketentuan</a>
-        </div>
+
+    {{-- ===================================================== --}}
+    {{-- RIGHT SIDEBAR --}}
+    {{-- ===================================================== --}}
+
+    <div class="flex flex-col gap-6 xl:col-span-1">
+
+
+        {{-- ================================================= --}}
+        {{-- RIGHT SIDEBAR --}}
+        {{-- ================================================= --}}
+
+        <x-right-sidebar
+            :events="$upcomingEvents ?? []"
+            :announcements="$announcements ?? []"
+            :stats="$serviceStats ?? []"
+            :analytics="$analytics ?? []"
+        />
+
+
+        {{-- ================================================= --}}
+        {{-- AI ENGINE --}}
+        {{-- ================================================= --}}
+
+        <x-dashboard.ai-engine
+            :analytics="$analytics ?? []"
+        />
+
     </div>
+
+</div>
+
+
+{{-- ========================================================= --}}
+{{-- FOOTER --}}
+{{-- ========================================================= --}}
+
+<div class="mt-8 flex flex-col gap-4 border-t border-gray-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
+
+
+    {{-- ===================================================== --}}
+    {{-- BRAND --}}
+    {{-- ===================================================== --}}
+
+    <div class="flex items-center gap-2">
+
+        <span class="text-[12px] font-semibold tracking-tight text-gray-700">
+            INAMOR
+        </span>
+
+        <span class="h-1 w-1 rounded-full bg-gray-300"></span>
+
+        <p class="text-[12px] text-gray-400">
+            Pemerintahan Berbasis AI
+        </p>
+
+    </div>
+
+
+    {{-- ===================================================== --}}
+    {{-- FOOTER NAVIGATION --}}
+    {{-- ===================================================== --}}
+
+    <div class="flex items-center gap-5 text-[12px] font-medium text-gray-400">
+
+        <a
+            href="#"
+            class="transition-colors duration-200 hover:text-gray-700"
+        >
+            Bantuan
+        </a>
+
+        <span class="h-1 w-1 rounded-full bg-gray-300"></span>
+
+        <a
+            href="#"
+            class="transition-colors duration-200 hover:text-gray-700"
+        >
+            Kebijakan Privasi
+        </a>
+
+        <span class="h-1 w-1 rounded-full bg-gray-300"></span>
+
+        <a
+            href="#"
+            class="transition-colors duration-200 hover:text-gray-700"
+        >
+            Syarat & Ketentuan
+        </a>
+
+    </div>
+
+
+    {{-- ===================================================== --}}
+    {{-- COPYRIGHT --}}
+    {{-- ===================================================== --}}
+
+    <p class="text-[11px] text-gray-400">
+        © {{ now()->year }} Inamor
+    </p>
+
+</div>
 
 </x-app-layout>

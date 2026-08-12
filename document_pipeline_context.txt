@@ -1,0 +1,931 @@
+======================================================================
+FILE: app\Http\Controllers\DocumentController.php
+======================================================================
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Services\DocumentService;
+use Illuminate\Http\Request;
+
+class DocumentController extends Controller
+{
+    public function __construct(
+        protected DocumentService $documentService
+    ) {}
+
+  public function index(Request $request)
+{
+    return view('documents.index', [
+        'documents' => $this->documentService
+            ->getDocuments($request->user()),
+    ]);
+}
+
+    public function create()
+    {
+        return view('documents.create');
+    }
+
+    public function store(Request $request)
+    {
+        $request->validate([
+            'title' => ['required', 'string', 'max:255'],
+            'document' => ['required', 'file', 'mimes:pdf', 'max:20480'], // 20MB
+        ]);
+
+        $this->documentService->upload(
+            $request->user(),
+            $request->string('title')->toString(),
+            $request->file('document')
+        );
+
+        return redirect()
+            ->route('documents.index')
+            ->with('success', 'Document uploaded successfully.');
+    }
+    
+}
+
+======================================================================
+FILE: app\Services\DocumentService.php
+======================================================================
+<?php
+
+namespace App\Services;
+
+use App\Models\Document;
+use App\Models\User;
+use App\Repositories\DocumentRepository;
+use App\Services\Document\DocumentProcessorService;
+use App\Services\Workspace\WorkspaceResolver;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+
+class DocumentService
+{
+    public function __construct(
+        protected DocumentRepository $documentRepository,
+        protected DocumentProcessorService $documentProcessorService,
+        protected WorkspaceResolver $workspaceResolver,
+    ) {}
+
+    public function getDocuments(User $user)
+    {
+        $workspace = $this->workspaceResolver->resolve($user);
+
+        return $this->documentRepository
+            ->getByWorkspace($workspace->id);
+    }
+
+    public function upload(
+        User $user,
+        string $title,
+        UploadedFile $file
+    ): Document {
+        return DB::transaction(function () use ($user, $title, $file) {
+
+            $workspace = $this->workspaceResolver->resolve($user);
+
+            $fileName = Str::uuid() . '.' . $file->getClientOriginalExtension();
+
+            $path = $file->storeAs(
+                "documents/{$workspace->id}",
+                $fileName,
+                'local'
+            );
+
+            $document = $this->documentRepository->create([
+                'workspace_id' => $workspace->id,
+                'uploaded_by'  => $user->id,
+                'title'        => $title,
+                'file_name'    => $fileName,
+                'file_path'    => $path,
+                'mime_type'    => $file->getMimeType(),
+                'file_size'    => $file->getSize(),
+                'status'       => 'pending',
+            ]);
+
+            $this->documentProcessorService->process($document);
+
+            return $document;
+        });
+    }
+
+    public function buildContext(
+        User $user,
+        string $question
+    ): array {
+        $workspace = $this->workspaceResolver->resolve($user);
+
+        return $this->documentRepository->searchRelevantDocuments(
+            $workspace->id,
+            $question
+        );
+    }
+}
+
+======================================================================
+FILE: app\Services\Document\DocumentProcessorService.php
+======================================================================
+<?php
+
+namespace App\Services\Document;
+
+use App\Models\Document;
+use App\Repositories\DocumentRepository;
+use App\Services\KnowledgeMemory\KnowledgeExtractorService;
+use App\Services\KnowledgeMemory\KnowledgeMemoryService;
+use Illuminate\Support\Facades\Storage;
+use Smalot\PdfParser\Parser;
+use Throwable;
+
+final class DocumentProcessorService
+{
+    public function __construct(
+        private readonly Parser $parser,
+        private readonly DocumentRepository $documentRepository,
+        private readonly KnowledgeExtractorService $knowledgeExtractor,
+        private readonly KnowledgeMemoryService $knowledgeMemoryService,
+    ) {
+    }
+
+    public function process(Document $document): void
+    {
+        try {
+
+            /*
+            |--------------------------------------------------------------------------
+            | Parse PDF
+            |--------------------------------------------------------------------------
+            */
+
+            $pdf = $this->parser->parseFile(
+                Storage::disk('local')->path($document->file_path)
+            );
+
+            $rawText = trim($pdf->getText());
+
+            /*
+            |--------------------------------------------------------------------------
+            | Save Document Content
+            |--------------------------------------------------------------------------
+            */
+
+            $this->documentRepository->createContent($document, [
+                'raw_text'   => $rawText,
+                'page_count' => count($pdf->getPages()),
+            ]);
+
+            /*
+            |--------------------------------------------------------------------------
+            | AI Knowledge Extraction
+            |--------------------------------------------------------------------------
+            */
+
+            $memories = $this->knowledgeExtractor->extract(
+                title: $document->title,
+                rawText: $rawText,
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | Save Knowledge Memories
+            |--------------------------------------------------------------------------
+            */
+
+            foreach ($memories as $memory) {
+
+                $this->knowledgeMemoryService->create(
+
+                    memory: [
+
+                        'workspace_id' => $document->workspace_id,
+
+                        'source_type' => 'document',
+
+                        'source_id' => $document->id,
+
+                        'title' => $memory->title,
+
+                        'knowledge' => $memory->knowledge,
+
+                        'page_number' => $memory->pageNumber,
+
+                        'confidence' => $memory->confidence,
+
+                        'status' => 'active',
+
+                    ],
+
+                    aliases: $memory->aliases,
+
+                );
+
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Finish
+            |--------------------------------------------------------------------------
+            */
+
+            $this->documentRepository->markAsReady($document);
+
+        } catch (Throwable $e) {
+
+            $this->documentRepository->markAsFailed($document);
+
+            throw $e;
+
+        }
+    }
+}
+
+======================================================================
+FILE: app\Repositories\DocumentRepository.php
+======================================================================
+<?php
+
+namespace App\Repositories;
+
+use App\Models\Document;
+use App\Models\DocumentContent;
+use Illuminate\Support\Collection;
+
+final class DocumentRepository
+{
+    public function create(array $data): Document
+    {
+        return Document::create($data);
+    }
+
+    public function update(Document $document, array $data): Document
+    {
+        $document->update($data);
+
+        return $document->refresh();
+    }
+
+    public function delete(Document $document): bool
+    {
+        return (bool) $document->delete();
+    }
+
+    public function getByWorkspace(int $workspaceId): Collection
+    {
+        return Document::query()
+            ->where('workspace_id', $workspaceId)
+            ->latest()
+            ->get();
+    }
+
+    /**
+     * Pre-filters documents at the database level to candidates that
+     * contain at least one keyword in their title or body. No scoring
+     * happens here - it is purely a DB-level candidate fetch.
+     *
+     * @param array<int, string> $keywords
+     */
+    public function searchDocuments(int $workspaceId, array $keywords): Collection
+    {
+        if (empty($keywords)) {
+            return collect();
+        }
+
+        return Document::query()
+            ->with('content')
+            ->where('workspace_id', $workspaceId)
+            ->where('status', 'ready')
+            ->where(function ($query) use ($keywords): void {
+                foreach ($keywords as $keyword) {
+                    $query->orWhere('title', 'like', "%{$keyword}%")
+                        ->orWhereHas('content', function ($contentQuery) use ($keyword): void {
+                            $contentQuery->where('raw_text', 'like', "%{$keyword}%");
+                        });
+                }
+            })
+            ->get();
+    }
+
+    public function getDocumentContents(int $documentId): ?DocumentContent
+    {
+        return DocumentContent::query()
+            ->where('document_id', $documentId)
+            ->first();
+    }
+
+    /**
+     * @param array{raw_text: string, page_count: int} $data
+     */
+    public function createContent(Document $document, array $data): DocumentContent
+    {
+        return $document->content()->create($data);
+    }
+
+    public function markAsReady(Document $document): Document
+    {
+        return $this->update($document, ['status' => 'ready']);
+    }
+
+    public function markAsFailed(Document $document): Document
+    {
+        return $this->update($document, ['status' => 'failed']);
+    }
+}
+
+======================================================================
+FILE: app\Models\Document.php
+======================================================================
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+
+class Document extends Model
+{
+    protected $fillable = [
+        'workspace_id',
+        'uploaded_by',
+        'title',
+        'file_name',
+        'file_path',
+        'mime_type',
+        'file_size',
+        'status',
+    ];
+
+    public function workspace(): BelongsTo
+    {
+        return $this->belongsTo(Workspace::class);
+    }
+
+    public function uploader(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'uploaded_by');
+    }
+
+    public function content(): HasOne
+    {
+        return $this->hasOne(DocumentContent::class);
+    }
+}
+
+======================================================================
+FILE: app\Models\DocumentContent.php
+======================================================================
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class DocumentContent extends Model
+{
+    protected $fillable = [
+        'document_id',
+        'raw_text',
+        'page_count',
+    ];
+
+    public function document(): BelongsTo
+    {
+        return $this->belongsTo(Document::class);
+    }
+}
+
+======================================================================
+FILE: app\Services\Document\ChunkService.php
+======================================================================
+
+======================================================================
+FILE: app\Services\KnowledgeMemory\KnowledgeExtractorService.php
+======================================================================
+<?php
+
+namespace App\Services\KnowledgeMemory;
+
+use App\DataTransferObjects\KnowledgeMemoryDTO;
+use App\Services\AI\AIResponseParser;
+use App\Services\AI\AIService;
+use App\Services\AI\KnowledgeExtractionPrompt;
+use Illuminate\Support\Collection;
+
+final class KnowledgeExtractorService
+{
+    public function __construct(
+        private readonly KnowledgeExtractionPrompt $prompt,
+        private readonly AIService $aiService,
+        private readonly AIResponseParser $parser,
+    ) {
+    }
+
+    /**
+     * Extract structured knowledge from a document.
+     *
+     * @return Collection<int, KnowledgeMemoryDTO>
+     */
+    public function extract(
+        string $title,
+        string $rawText,
+    ): Collection {
+
+        /*
+        |--------------------------------------------------------------------------
+        | Build AI Prompt
+        |--------------------------------------------------------------------------
+        */
+
+        $prompt = $this->prompt->build(
+            title: $title,
+            content: $rawText,
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Send to Gemini
+        |--------------------------------------------------------------------------
+        */
+
+       $response = $this->aiService->extractKnowledge($prompt);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Parse AI Response
+        |--------------------------------------------------------------------------
+        */
+
+        return $this->parser->parseKnowledgeExtraction(
+            $response
+        );
+    }
+}
+
+======================================================================
+FILE: app\Services\KnowledgeMemory\KnowledgeMemoryService.php
+======================================================================
+<?php
+
+namespace App\Services\KnowledgeMemory;
+
+use App\Models\KnowledgeMemory;
+use App\Repositories\KnowledgeMemory\KnowledgeMemoryAliasRepository;
+use App\Repositories\KnowledgeMemory\KnowledgeMemoryRepository;
+use Illuminate\Support\Collection;
+
+final class KnowledgeMemoryService
+{
+    public function __construct(
+        private readonly KnowledgeMemoryRepository $memoryRepository,
+        private readonly KnowledgeMemoryAliasRepository $aliasRepository,
+    ) {
+    }
+
+    /**
+     * Create new knowledge memory.
+     *
+     * @param array<string, mixed> $memory
+     * @param array<int, string> $aliases
+     */
+    public function create(
+        array $memory,
+        array $aliases = [],
+    ): KnowledgeMemory {
+
+        $knowledge = $this->memoryRepository->create($memory);
+
+        if (! empty($aliases)) {
+
+            $this->aliasRepository->createMany(
+                $knowledge->id,
+                array_unique($aliases),
+            );
+
+        }
+
+        return $this->memoryRepository->find(
+            $knowledge->id
+        );
+    }
+
+    /**
+     * Update knowledge memory.
+     *
+     * @param array<string, mixed> $data
+     */
+    public function update(
+        KnowledgeMemory $memory,
+        array $data,
+    ): KnowledgeMemory {
+
+        return $this->memoryRepository->update(
+            $memory,
+            $data,
+        );
+    }
+
+    /**
+     * Delete knowledge memory and aliases.
+     */
+    public function delete(
+        KnowledgeMemory $memory,
+    ): void {
+
+        $this->aliasRepository->deleteByMemory(
+            $memory->id,
+        );
+
+        $this->memoryRepository->delete(
+            $memory,
+        );
+    }
+
+    /**
+     * Replace aliases.
+     *
+     * @param array<int, string> $aliases
+     */
+    public function replaceAliases(
+        KnowledgeMemory $memory,
+        array $aliases,
+    ): void {
+
+        $this->aliasRepository->deleteByMemory(
+            $memory->id,
+        );
+
+        $this->aliasRepository->createMany(
+            $memory->id,
+            array_unique($aliases),
+        );
+    }
+
+    /**
+     * Find memory.
+     */
+    public function find(
+        int $id,
+    ): ?KnowledgeMemory {
+
+        return $this->memoryRepository->find(
+            $id,
+        );
+    }
+
+    /**
+     * Get all workspace memories.
+     */
+    public function byWorkspace(
+        int $workspaceId,
+    ): Collection {
+
+        return $this->memoryRepository->byWorkspace(
+            $workspaceId,
+        );
+    }
+
+    /**
+     * Delete all memories from a source.
+     */
+    public function deleteBySource(
+        int $workspaceId,
+        string $sourceType,
+        int $sourceId,
+    ): void {
+
+        $this->memoryRepository->deleteBySource(
+            $workspaceId,
+            $sourceType,
+            $sourceId,
+        );
+    }
+}
+
+======================================================================
+FILE: composer.json
+======================================================================
+{
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "laravel/laravel",
+    "type": "project",
+    "description": "The skeleton application for the Laravel framework.",
+    "keywords": ["laravel", "framework"],
+    "license": "MIT",
+    "require": {
+        "php": "^8.3",
+        "laravel/framework": "^13.8",
+        "laravel/tinker": "^3.0",
+        "smalot/pdfparser": "^2.12"
+    },
+    "require-dev": {
+        "barryvdh/laravel-debugbar": "^4.4",
+        "barryvdh/laravel-ide-helper": "^3.7",
+        "fakerphp/faker": "^1.23",
+        "laravel/breeze": "^2.4",
+        "laravel/pail": "^1.2.5",
+        "laravel/pao": "^1.0.6",
+        "laravel/pint": "^1.27",
+        "mockery/mockery": "^1.6",
+        "nunomaduro/collision": "^8.6",
+        "phpunit/phpunit": "^12.5.12"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/",
+            "Database\\Factories\\": "database/factories/",
+            "Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "setup": [
+            "composer install",
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
+            "@php artisan key:generate",
+            "@php artisan migrate --force",
+            "npm install --ignore-scripts",
+            "npm run build"
+        ],
+        "dev": [
+            "Composer\\Config::disableProcessTimeout",
+            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1 --timeout=0\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=server,queue,logs,vite --kill-others"
+        ],
+        "test": [
+            "@php artisan config:clear --ansi @no_additional_args",
+            "@php artisan test"
+        ],
+        "post-autoload-dump": [
+            "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
+            "@php artisan package:discover --ansi"
+        ],
+        "post-update-cmd": [
+            "@php artisan vendor:publish --tag=laravel-assets --ansi --force"
+        ],
+        "post-root-package-install": [
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
+        ],
+        "post-create-project-cmd": [
+            "@php artisan key:generate --ansi",
+            "@php -r \"file_exists('database/database.sqlite') || touch('database/database.sqlite');\"",
+            "@php artisan migrate --graceful --ansi"
+        ],
+        "pre-package-uninstall": [
+            "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
+        ]
+    },
+    "extra": {
+        "laravel": {
+            "dont-discover": []
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true,
+            "php-http/discovery": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
+
+======================================================================
+FILE: config\filesystems.php
+======================================================================
+<?php
+
+return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | Default Filesystem Disk
+    |--------------------------------------------------------------------------
+    |
+    | Here you may specify the default filesystem disk that should be used
+    | by the framework. The "local" disk, as well as a variety of cloud
+    | based disks are available to your application for file storage.
+    |
+    */
+
+    'default' => env('FILESYSTEM_DISK', 'local'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Filesystem Disks
+    |--------------------------------------------------------------------------
+    |
+    | Below you may configure as many filesystem disks as necessary, and you
+    | may even configure multiple disks for the same driver. Examples for
+    | most supported storage drivers are configured here for reference.
+    |
+    | Supported drivers: "local", "ftp", "sftp", "s3"
+    |
+    */
+
+    'disks' => [
+
+        'local' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private'),
+            'serve' => true,
+            'throw' => false,
+            'report' => false,
+        ],
+
+        'public' => [
+            'driver' => 'local',
+            'root' => storage_path('app/public'),
+            'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
+            'visibility' => 'public',
+            'throw' => false,
+            'report' => false,
+        ],
+
+        's3' => [
+            'driver' => 's3',
+            'key' => env('AWS_ACCESS_KEY_ID'),
+            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'region' => env('AWS_DEFAULT_REGION'),
+            'bucket' => env('AWS_BUCKET'),
+            'url' => env('AWS_URL'),
+            'endpoint' => env('AWS_ENDPOINT'),
+            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'throw' => false,
+            'report' => false,
+        ],
+
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Symbolic Links
+    |--------------------------------------------------------------------------
+    |
+    | Here you may configure the symbolic links that will be created when the
+    | `storage:link` Artisan command is executed. The array keys should be
+    | the locations of the links and the values should be their targets.
+    |
+    */
+
+    'links' => [
+        public_path('storage') => storage_path('app/public'),
+    ],
+
+];
+
+======================================================================
+FILE: config\knowledge.php
+======================================================================
+<?php
+
+return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | Retrieval Settings
+    |--------------------------------------------------------------------------
+    |
+    | Controls how KeywordRetrievalService (and any future
+    | EmbeddingRetrievalService) scores and limits results.
+    |
+    */
+    'retrieval' => [
+        'result_limit' => (int) env('KNOWLEDGE_RESULT_LIMIT', 3),
+
+        // Minimum score agar dokumen dianggap relevan
+        'minimum_score' => (int) env('KNOWLEDGE_MINIMUM_SCORE', 4),
+
+        'min_keyword_length' => (int) env('KNOWLEDGE_MIN_KEYWORD_LENGTH', 2),
+
+        'max_heading_length' => (int) env('KNOWLEDGE_MAX_HEADING_LENGTH', 80),
+
+        'weights' => [
+            'title'   => (int) env('KNOWLEDGE_WEIGHT_TITLE', 5),
+            'heading' => (int) env('KNOWLEDGE_WEIGHT_HEADING', 3),
+            'body'    => (int) env('KNOWLEDGE_WEIGHT_BODY', 1),
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Context Settings
+    |--------------------------------------------------------------------------
+    */
+    'context' => [
+        'max_length' => (int) env('KNOWLEDGE_MAX_CONTEXT_LENGTH', 12000),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Prompt Settings
+    |--------------------------------------------------------------------------
+    */
+    'prompt' => [
+        'system_role'     => env('KNOWLEDGE_SYSTEM_ROLE', 'You are an AI Knowledge Assistant.'),
+        'fallback_answer' => env('KNOWLEDGE_FALLBACK_ANSWER', 'Informasi tidak ditemukan pada dokumen.'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Gemini Call Settings
+    |--------------------------------------------------------------------------
+    */
+    'gemini' => [
+        'timeout' => (int) env('KNOWLEDGE_GEMINI_TIMEOUT', 60),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Groq Provider Settings
+    |--------------------------------------------------------------------------
+    */
+    'groq' => [
+        'api_key' => env('GROQ_API_KEY'),
+        'model'   => env('GROQ_MODEL', 'llama-3.3-70b-versatile'),
+        'timeout' => (int) env('KNOWLEDGE_GROQ_TIMEOUT', 60),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | OpenRouter Provider Settings
+    |--------------------------------------------------------------------------
+    */
+    'openrouter' => [
+        'api_key' => env('OPENROUTER_API_KEY'),
+        'model'   => env('OPENROUTER_MODEL', 'openrouter/auto'),
+        'timeout' => (int) env('KNOWLEDGE_OPENROUTER_TIMEOUT', 60),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | AI Router Settings
+    |--------------------------------------------------------------------------
+    */
+    'providers' => [
+        'order' => ['gemini', 'groq', 'openrouter'],
+    ],
+/*
+|--------------------------------------------------------------------------
+| Smart Router
+|--------------------------------------------------------------------------
+*/
+
+'router' => [
+
+    /*
+    |--------------------------------------------------------------------------
+    | Router Mode
+    |--------------------------------------------------------------------------
+    |
+    | priority
+    | latency
+    | health
+    |
+    */
+
+    'mode' => env(
+        'KNOWLEDGE_ROUTER_MODE',
+        'priority'
+    ),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Provider Priority
+    |--------------------------------------------------------------------------
+    */
+
+    'provider_order' => [
+
+        'gemini',
+
+        'groq',
+
+        'openrouter',
+
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Circuit Breaker Cooldown
+    |--------------------------------------------------------------------------
+    */
+
+    'health_cooldown' => (int) env(
+        'KNOWLEDGE_ROUTER_HEALTH_COOLDOWN',
+        300
+    ),
+
+],
+];
+

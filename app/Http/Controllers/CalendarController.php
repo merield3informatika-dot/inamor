@@ -3,15 +3,18 @@
 namespace App\Http\Controllers;
 
 use App\Models\CalendarEvent;
+use App\Services\Calendar\CalendarNotificationService;
 use App\Services\WorkspaceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class CalendarController extends Controller
 {
     public function __construct(
-        private readonly WorkspaceService $workspaceService
+        private readonly WorkspaceService $workspaceService,
+        private readonly CalendarNotificationService $calendarNotificationService,
     ) {
     }
 
@@ -51,10 +54,16 @@ class CalendarController extends Controller
             'color' => ['nullable', 'string', 'max:20'],
         ]);
 
-        $workspace->calendarEvents()->create([
-            ...$validated,
-            'created_by' => $request->user()->id,
-        ]);
+        DB::transaction(function () use ($workspace, $request, $validated) {
+
+            $event = $workspace->calendarEvents()->create([
+                ...$validated,
+                'created_by' => $request->user()->id,
+            ]);
+
+            $this->calendarNotificationService->notifyCreated($event);
+
+        });
 
         return redirect()
             ->route('calendar.index')
@@ -88,6 +97,8 @@ public function update(Request $request, CalendarEvent $calendar): RedirectRespo
         'color' => ['nullable', 'string', 'max:20'],
     ]);
 
+    // Intentionally NOT calling calendarNotificationService here —
+    // notifications are only sent on CREATE, never on update.
     $calendar->update($validated);
 
     return redirect()

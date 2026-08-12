@@ -3,232 +3,347 @@
 ])
 
 @php
-    $health = $analytics['health'] ?? [
-        'status' => 'healthy',
-        'label' => 'Healthy',
-        'color' => 'green',
+    /*
+    |--------------------------------------------------------------------------
+    | Analytics
+    |--------------------------------------------------------------------------
+    */
+
+    $overview = $analytics['overview'] ?? [];
+
+    $todayRequests = (int) (
+        $overview['requests_today'] ?? 0
+    );
+
+    $latency = (int) (
+        $overview['today_avg_response_ms']
+        ?? $overview['avg_response_ms']
+        ?? 0
+    );
+
+    $successRate = (int) (
+        $overview['success_rate'] ?? 0
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | Knowledge Memory
+    |--------------------------------------------------------------------------
+    */
+
+    $knowledgeMemory = (int) (
+        $analytics['knowledge_memory']['coverage_pct']
+        ?? 0
+    );
+
+    $knowledgeUsedToday = (int) (
+        $analytics['knowledge_memory']['used_today']
+        ?? 0
+    );
+
+    $knowledgeSaved = (int) (
+        $analytics['knowledge_memory']['saved_count']
+        ?? 0
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | Health
+    |--------------------------------------------------------------------------
+    */
+
+    $health = $overview['health'] ?? [
+        'status' => 'no_data',
+        'label' => 'No Data',
+        'color' => 'gray',
     ];
 
-    $todayRequests = $analytics['today_requests'] ?? 0;
+    $healthColor = $health['color'] ?? 'gray';
+    $healthLabel = $health['label'] ?? 'No Data';
 
-    $knowledgeMemory = $analytics['knowledge_memory']['percentage'] ?? 0;
-    $gemini = $analytics['gemini']['percentage'] ?? 0;
-    $latency = $analytics['latency']['average'] ?? 0;
+    $healthBadge = match ($healthColor) {
+        'green' => 'border-emerald-100 bg-emerald-50 text-emerald-600',
+        'yellow' => 'border-amber-100 bg-amber-50 text-amber-600',
+        'orange' => 'border-orange-100 bg-orange-50 text-orange-600',
+        'red' => 'border-red-100 bg-red-50 text-red-600',
+        default => 'border-gray-100 bg-gray-50 text-gray-500',
+    };
 
-    $hasData = $todayRequests > 0;
+    $healthDot = match ($healthColor) {
+        'green' => 'bg-emerald-500',
+        'yellow' => 'bg-amber-500',
+        'orange' => 'bg-orange-500',
+        'red' => 'bg-red-500',
+        default => 'bg-gray-400',
+    };
 
-    $statusColors = [
-        'green' => [
-            'badge' => 'bg-green-100 text-green-700',
-            'dot' => 'bg-green-500',
-        ],
-        'yellow' => [
-            'badge' => 'bg-yellow-100 text-yellow-700',
-            'dot' => 'bg-yellow-500',
-        ],
-        'orange' => [
-            'badge' => 'bg-orange-100 text-orange-700',
-            'dot' => 'bg-orange-500',
-        ],
-        'red' => [
-            'badge' => 'bg-red-100 text-red-700',
-            'dot' => 'bg-red-500',
-        ],
-    ];
-
-    $style = $statusColors[$health['color']] ?? $statusColors['green'];
+    $successRate = min(100, max(0, $successRate));
+    $knowledgeMemory = min(100, max(0, $knowledgeMemory));
 @endphp
 
-<div class="bg-white rounded-[24px] border border-gray-100 shadow-[0_4px_24px_rgba(0,0,0,0.02)] p-6 flex flex-col h-full">
 
-    <div class="flex items-center justify-between mb-6 shrink-0">
+{{-- ============================================================
+     AI ENGINE CARD
+============================================================ --}}
+
+<div class="rounded-[20px] border border-gray-100 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.04)]">
+
+
+    {{-- ========================================================
+         HEADER
+    ========================================================= --}}
+
+    <div class="flex items-start justify-between">
 
         <div>
-
-            <h3 class="text-[16px] font-bold text-gray-900 tracking-tight">
+            <h3 class="text-[15px] font-bold tracking-tight text-gray-900">
                 AI Engine
             </h3>
 
-            <p class="text-[12px] text-gray-500 mt-1">
+            <p class="mt-1 text-[11px] text-gray-500">
                 Knowledge Analytics
             </p>
-
         </div>
+
 
         <a
             href="{{ route('ai.analytics') }}"
-            class="group flex items-center gap-1 text-[13px] font-semibold text-blue-600 hover:text-blue-700 transition-colors">
-
+            class="group inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 transition-colors hover:text-blue-700"
+        >
             Lihat semua
 
             <svg
-                class="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5"
+                class="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5"
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
-                stroke-width="2.5">
-
+                stroke-width="2"
+            >
                 <path
                     stroke-linecap="round"
                     stroke-linejoin="round"
-                    d="M9 5l7 7-7 7" />
-
+                    d="M9 5l7 7-7 7"
+                />
             </svg>
-
         </a>
 
     </div>
 
-    @if($hasData)
 
-        <div class="flex flex-col flex-1">
+    {{-- ========================================================
+         AI STATUS
+    ========================================================= --}}
 
-            <div class="flex items-center justify-between mb-6">
+    <div class="mt-5 flex items-center justify-between">
 
-                <div class="flex items-center gap-3">
+        <div class="flex min-w-0 items-center gap-3">
 
-                    <div class="w-11 h-11 rounded-[14px] bg-gradient-to-br from-violet-50 to-indigo-100 border border-violet-100 flex items-center justify-center shadow-sm">
-
-                        🤖
-
-                    </div>
-
-                    <div>
-
-                        <div class="text-[14px] font-semibold text-gray-900">
-                            AI Engine
-                        </div>
-
-                        <div class="text-[12px] text-gray-500">
-                            {{ $todayRequests }} request hari ini
-                        </div>
-
-                    </div>
-
-                </div>
-
-                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full {{ $style['badge'] }}">
-
-                    <span class="w-2 h-2 rounded-full {{ $style['dot'] }}"></span>
-
-                    <span class="text-[11px] font-semibold">
-
-                        {{ $health['label'] }}
-
-                    </span>
-
-                </div>
-
+            <div
+                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-violet-50"
+            >
+                <span class="text-[16px]">
+                    🤖
+                </span>
             </div>
 
-            <div class="space-y-4">
 
-                <div class="flex items-center justify-between">
+            <div class="min-w-0">
 
-                    <span class="text-[13px] text-gray-600">
-                        Knowledge Memory
-                    </span>
+                <p class="truncate text-[12.5px] font-semibold text-gray-900">
+                    AI Assistant
+                </p>
 
-                    <span class="font-bold text-[14px] text-gray-900">
-                        {{ $knowledgeMemory }}%
-                    </span>
-
-                </div>
-
-                <div class="w-full h-2 rounded-full bg-gray-100 overflow-hidden">
-
-                    <div
-                        class="h-full rounded-full bg-gradient-to-r from-emerald-400 to-green-500"
-                        style="width: {{ $knowledgeMemory }}%">
-
-                    </div>
-
-                </div>
-
-                <div class="flex items-center justify-between">
-
-                    <span class="text-[13px] text-gray-600">
-                        Gemini
-                    </span>
-
-                    <span class="font-bold text-[14px] text-gray-900">
-                        {{ $gemini }}%
-                    </span>
-
-                </div>
-
-                <div class="w-full h-2 rounded-full bg-gray-100 overflow-hidden">
-
-                    <div
-                        class="h-full rounded-full bg-gradient-to-r from-violet-500 to-indigo-600"
-                        style="width: {{ $gemini }}%">
-
-                    </div>
-
-                </div>
-
-            </div>
-
-            <div class="mt-6 pt-5 border-t border-gray-100 flex items-center justify-between">
-
-                <div>
-
-                    <div class="text-[12px] text-gray-500">
-                        Average Response
-                    </div>
-
-                    <div class="mt-1 text-[20px] font-bold text-gray-900">
-
-                        {{ $latency }}
-
-                        <span class="text-[13px] font-medium text-gray-500">
-                            ms
-                        </span>
-
-                    </div>
-
-                </div>
-
-                <div class="text-right">
-
-                    <div class="text-[12px] text-gray-500">
-                        AI Saved
-                    </div>
-
-                    <div class="mt-1 text-[20px] font-bold text-emerald-600">
-
-                        {{ $knowledgeMemory }}%
-
-                    </div>
-
-                </div>
+                <p class="mt-0.5 text-[10px] text-gray-500">
+                    {{ number_format($todayRequests) }} request hari ini
+                </p>
 
             </div>
 
         </div>
 
-    @else
 
-        <div class="flex flex-col items-center justify-center flex-1 py-10 px-4 text-center rounded-2xl border-2 border-dashed border-gray-100 bg-gray-50/50">
+        {{-- Health --}}
+        <span
+            class="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-1 {{ $healthBadge }}"
+        >
 
-            <div class="w-16 h-16 rounded-[18px] bg-white border border-gray-100 shadow-sm flex items-center justify-center text-3xl mb-5">
+            <span class="h-1.5 w-1.5 rounded-full {{ $healthDot }}"></span>
 
-                🤖
+            <span class="text-[8.5px] font-semibold">
+                {{ $healthLabel }}
+            </span>
+
+        </span>
+
+    </div>
+
+
+    {{-- ========================================================
+         CORE METRICS
+    ========================================================= --}}
+
+    <div class="mt-5 grid grid-cols-2 divide-x divide-gray-100 border-y border-gray-100 py-4">
+
+        {{-- Requests --}}
+        <div class="pr-4">
+
+            <p class="text-[9.5px] font-medium text-gray-400">
+                Requests
+            </p>
+
+            <div class="mt-1 flex items-baseline gap-1">
+
+                <span class="text-[19px] font-bold tracking-tight text-gray-900">
+                    {{ number_format($todayRequests) }}
+                </span>
 
             </div>
 
-            <h4 class="text-[14px] font-semibold text-gray-900 mb-1">
-
-                Belum ada aktivitas AI
-
-            </h4>
-
-            <p class="text-[12.5px] text-gray-500 leading-relaxed max-w-[220px]">
-
-                Statistik AI akan muncul setelah pengguna mulai menggunakan AI Assistant.
-
+            <p class="mt-0.5 text-[9px] text-gray-400">
+                hari ini
             </p>
+
+        </div>
+
+
+        {{-- Response --}}
+        <div class="pl-4">
+
+            <p class="text-[9.5px] font-medium text-gray-400">
+                Response
+            </p>
+
+            <div class="mt-1 flex items-baseline gap-1">
+
+                <span class="text-[19px] font-bold tracking-tight text-gray-900">
+                    {{ number_format($latency) }}
+                </span>
+
+                <span class="text-[9px] font-medium text-gray-400">
+                    ms
+                </span>
+
+            </div>
+
+            <p class="mt-0.5 text-[9px] text-gray-400">
+                rata-rata
+            </p>
+
+        </div>
+
+    </div>
+
+
+    {{-- ========================================================
+         PERFORMANCE
+    ========================================================= --}}
+
+    <div class="mt-4 grid grid-cols-2 gap-4">
+
+
+        {{-- Success Rate --}}
+        <div>
+
+            <div class="flex items-center justify-between">
+
+                <p class="text-[10px] font-semibold text-gray-700">
+                    Success Rate
+                </p>
+
+                <span class="text-[12px] font-bold text-gray-900">
+                    {{ $successRate }}%
+                </span>
+
+            </div>
+
+            <div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+
+                <div
+                    class="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                    style="width: {{ $successRate }}%"
+                ></div>
+
+            </div>
+
+            <p class="mt-1 text-[8.5px] text-gray-400">
+                Request berhasil
+            </p>
+
+        </div>
+
+
+        {{-- Knowledge Memory --}}
+        <div>
+
+            <div class="flex items-center justify-between">
+
+                <p class="text-[10px] font-semibold text-gray-700">
+                    Knowledge
+                </p>
+
+                <span class="text-[12px] font-bold text-violet-600">
+                    {{ $knowledgeMemory }}%
+                </span>
+
+            </div>
+
+            <div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+
+                <div
+                    class="h-full rounded-full bg-violet-500 transition-all duration-500"
+                    style="width: {{ $knowledgeMemory }}%"
+                ></div>
+
+            </div>
+
+            <p class="mt-1 text-[8.5px] text-gray-400">
+                {{ number_format($knowledgeUsedToday) }} used
+            </p>
+
+        </div>
+
+    </div>
+
+
+    {{-- ========================================================
+         KNOWLEDGE FOOTNOTE
+    ========================================================= --}}
+
+    @if($knowledgeSaved > 0)
+
+        <div class="mt-4 flex items-center justify-between rounded-[10px] bg-gray-50 px-3 py-2">
+
+            <div class="flex items-center gap-2">
+
+                <span class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50">
+
+                    <svg
+                        class="h-3 w-3 text-emerald-500"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M5 13l4 4L19 7"
+                        />
+                    </svg>
+
+                </span>
+
+                <span class="text-[9px] text-gray-500">
+                    Knowledge berhasil digunakan
+                </span>
+
+            </div>
+
+            <span class="text-[10px] font-bold text-gray-700">
+                {{ number_format($knowledgeSaved) }}
+            </span>
 
         </div>
 

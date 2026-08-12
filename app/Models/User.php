@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Models\Notification;
 
 
 #[Fillable(['name',
@@ -62,6 +63,13 @@ public function createdWorkspaceInvitations(): HasMany
     return $this->hasMany(
         WorkspaceInvitation::class,
         'created_by'
+    );
+}
+public function notifications(): HasMany
+{
+    return $this->hasMany(
+        Notification::class,
+        'user_id'
     );
 }
 

@@ -52,6 +52,38 @@ final class KnowledgeMemoryRepository
     }
 
     /**
+     * Find specific memory by source.
+     */
+    public function findBySource(
+        int $workspaceId,
+        string $sourceType,
+        int $sourceId,
+    ): ?KnowledgeMemory {
+
+        return KnowledgeMemory::query()
+            ->where('workspace_id', $workspaceId)
+            ->where('source_type', $sourceType)
+            ->where('source_id', $sourceId)
+            ->first();
+    }
+
+    /**
+     * Get all memories by source.
+     */
+    public function getBySource(
+        int $workspaceId,
+        string $sourceType,
+        int $sourceId,
+    ): Collection {
+
+        return KnowledgeMemory::query()
+            ->where('workspace_id', $workspaceId)
+            ->where('source_type', $sourceType)
+            ->where('source_id', $sourceId)
+            ->get();
+    }
+
+    /**
      * Get all memories in workspace.
      */
     public function byWorkspace(

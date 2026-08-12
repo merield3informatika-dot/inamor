@@ -126,4 +126,30 @@ class Workspace extends Model
             WorkspaceInvitation::class
         );
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Announcements
+    |--------------------------------------------------------------------------
+    */
+
+    public function announcements(): HasMany
+    {
+        return $this->hasMany(
+            Announcement::class
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Chat Conversations
+    |--------------------------------------------------------------------------
+    */
+
+    public function chatConversations(): HasMany
+    {
+        return $this->hasMany(
+            WorkspaceConversation::class
+        );
+    }
 }

@@ -11,6 +11,16 @@ class DocumentContent extends Model
         'document_id',
         'raw_text',
         'page_count',
+        'extraction_method',
+        'ocr_used',
+        'confidence',
+        'metadata',
+    ];
+
+    protected $casts = [
+        'ocr_used' => 'boolean',
+        'confidence' => 'float',
+        'metadata' => 'array',
     ];
 
     public function document(): BelongsTo

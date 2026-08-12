@@ -5,20 +5,22 @@
 
 <aside class="fixed top-0 bottom-0 left-0 z-50 w-[240px] bg-white border-r border-gray-100 flex flex-col transition-transform duration-300 -translate-x-full md:translate-x-0 shadow-[2px_0_16px_rgba(0,0,0,0.015)]">
     
-    <!-- Header / Logo -->
-    <div class="px-4 pt-5 pb-4 flex items-center gap-2.5 shrink-0">
-        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20 shrink-0">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                <polygon points="12 2 22 8 22 16 12 22 2 16 2 8" opacity="0.2"/>
-                <polygon points="12 4 19 8.2 19 15.8 12 20 5 15.8 5 8.2" fill="white"/>
-                <circle cx="12" cy="12" r="3" fill="#4F46E5"/>
-            </svg>
-        </div>
-        <div>
-            <h1 class="text-[15px] font-bold tracking-tight text-gray-900 leading-tight">INAMOR</h1>
-            <p class="text-[9px] text-gray-400 leading-tight">Pemerintah Berbasis AI</p>
-        </div>
+  <div class="px-4 pt-5 pb-4 flex items-center gap-2.5 shrink-0">
+    <img
+        src="{{ asset('images/logo-inamor.png') }}"
+        alt="INAMOR"
+        class="w-8 h-8 rounded-lg object-cover shrink-0"
+    >
+
+    <div>
+        <h1 class="text-[15px] font-bold tracking-tight text-gray-900 leading-tight">
+            INAMOR
+        </h1>
+        <p class="text-[9px] text-gray-400 leading-tight">
+            e-Government Berbasis Ai
+        </p>
     </div>
+</div>
 
     <!-- Workspace Selector -->
     <div class="px-3 mb-3 shrink-0 relative">
@@ -291,7 +293,42 @@
                 </div>
             </div>
         </div>
+        <!-- AI Analytics -->
+        <a
+            href="{{ route('ai.analytics') }}"
+            class="flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-colors
+                {{ request()->routeIs('ai.analytics')
+                    ? 'bg-violet-50 text-violet-700 font-semibold'
+                    : 'text-gray-600 hover:bg-gray-50' }}"
+        >
 
+            <svg
+                class="w-4 h-4
+                    {{ request()->routeIs('ai.analytics')
+                        ? 'text-violet-600'
+                        : 'text-violet-500' }}"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+            >
+                <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M3 3v18h18"
+                />
+
+                <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M7 16l4-5 3 3 5-7"
+                />
+            </svg>
+
+            <span>AI Analytics</span>
+
+        </a>
         <!-- ========================================== -->
         <!-- 2. FITUR MENDATANG (COMING SOON)           -->
         <!-- ========================================== -->
@@ -311,29 +348,42 @@
             <span class="{{ $comingSoonBadge }}">Soon</span>
         </a>
 
-        <!-- Surat & Disposisi -->
-        <a href="javascript:void(0)" class="{{ $comingSoonWrapperNormal }}">
-            <div class="flex items-center gap-2.5">
-                <svg class="w-4 h-4 text-orange-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
-                <span>Surat & Disposisi</span>
-            </div>
-            <div class="flex items-center gap-1.5">
-                @if(isset($unreadDispositions) && $unreadDispositions > 0)
-                    <span class="bg-red-100 text-red-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{{ $unreadDispositions }}</span>
-                @endif
-                <span class="{{ $comingSoonBadge }}">Soon</span>
-            </div>
-        </a>
+   
 
-        <!-- Pengumuman -->
-        <a href="javascript:void(0)" class="{{ $comingSoonWrapperNormal }}">
-            <div class="flex items-center gap-2.5">
-                <svg class="w-4 h-4 text-yellow-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>
-                <span>Pengumuman</span>
-            </div>
-            <span class="{{ $comingSoonBadge }}">Soon</span>
-        </a>
+     <!-- Pengumuman -->
+<a
+    href="{{ route('announcements.index') }}"
+    class="flex items-center justify-between px-2.5 py-2 rounded-lg transition-colors
+        {{ request()->routeIs('announcements.*')
+            ? 'bg-yellow-50 text-yellow-700 font-semibold'
+            : 'text-gray-600 hover:bg-gray-50' }}"
+>
+    <div class="flex items-center gap-2.5">
 
+        <svg
+            class="w-4 h-4
+                {{ request()->routeIs('announcements.*')
+                    ? 'text-yellow-600'
+                    : 'text-yellow-500' }}"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+        >
+            <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"
+            />
+        </svg>
+
+        <span>
+            Pengumuman
+        </span>
+
+    </div>
+</a>
         <!-- Data & Laporan -->
         <a href="javascript:void(0)" class="{{ $comingSoonWrapperNormal }}">
             <div class="flex items-center gap-2.5">
