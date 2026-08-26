@@ -17,11 +17,10 @@ final class AnnouncementService
     ) {
     }
 
-    /**
-     * List announcements for a workspace.
-     */
-    public function list(Workspace $workspace, bool $onlyPublished = false): Collection
-    {
+    public function list(
+        Workspace $workspace,
+        bool $onlyPublished = false
+    ): Collection {
         $query = $workspace->announcements()
             ->with('author')
             ->latest('created_at');
@@ -34,29 +33,44 @@ final class AnnouncementService
     }
 
     /**
-     * Create a new announcement. Always starts as draft.
-     *
-     * @param array{title: string, content: string} $data
+     * @param array{
+     *     title: string,
+     *     content: string,
+     *     thumbnail?: string|null
+     * } $data
      */
-    public function create(Workspace $workspace, User $author, array $data): Announcement
-    {
+    public function create(
+        Workspace $workspace,
+        User $author,
+        array $data
+    ): Announcement {
         return $workspace->announcements()->create([
             'author_id' => $author->id,
             'title' => $data['title'],
             'content' => $data['content'],
+            'thumbnail' => $data['thumbnail'] ?? null,
             'status' => 'draft',
             'published_at' => null,
         ]);
     }
 
     /**
-     * @param array{title: string, content: string} $data
+     * @param array{
+     *     title: string,
+     *     content: string,
+     *     thumbnail?: string|null
+     * } $data
      */
-    public function update(Announcement $announcement, array $data): Announcement
-    {
+    public function update(
+        Announcement $announcement,
+        array $data
+    ): Announcement {
         $announcement->update([
             'title' => $data['title'],
             'content' => $data['content'],
+            'thumbnail' => array_key_exists('thumbnail', $data)
+                ? $data['thumbnail']
+                : $announcement->thumbnail,
         ]);
 
         return $announcement->fresh();
@@ -67,14 +81,9 @@ final class AnnouncementService
         $announcement->delete();
     }
 
-    /**
-     * Publish an announcement and notify eligible workspace members.
-     *
-     * Idempotent: publishing an already-published announcement again
-     * does NOT create duplicate notifications.
-     */
-    public function publish(Announcement $announcement): Announcement
-    {
+    public function publish(
+        Announcement $announcement
+    ): Announcement {
         return DB::transaction(function () use ($announcement) {
 
             $updated = Announcement::query()
@@ -86,14 +95,16 @@ final class AnnouncementService
                 ]);
 
             if ($updated === 0) {
-                // Already published previously — no-op, no duplicate notifications.
                 return $announcement->fresh();
             }
 
             $announcement->refresh();
 
             $members = WorkspaceMember::query()
-                ->where('workspace_id', $announcement->workspace_id)
+                ->where(
+                    'workspace_id',
+                    $announcement->workspace_id
+                )
                 ->with('user')
                 ->get()
                 ->pluck('user')
@@ -103,7 +114,9 @@ final class AnnouncementService
                 users: $members,
                 workspaceId: $announcement->workspace_id,
                 type: 'announcement',
-                title: $announcement->title !== '' ? $announcement->title : 'Pengumuman baru',
+                title: $announcement->title !== ''
+                    ? $announcement->title
+                    : 'Pengumuman baru',
                 message: $announcement->title,
                 data: [
                     'announcement_id' => $announcement->id,

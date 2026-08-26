@@ -9,13 +9,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Announcement extends Model
 {
     protected $fillable = [
-        'workspace_id',
-        'author_id',
-        'title',
-        'content',
-        'status',
-        'published_at',
-    ];
+    'workspace_id',
+    'author_id',
+    'title',
+    'content',
+    'thumbnail',
+    'status',
+    'published_at',
+];
 
     protected $casts = [
         'published_at' => 'datetime',

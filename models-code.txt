@@ -1,0 +1,1155 @@
+================================================== 
+D:\laragon\www\inamor\app\Models\AICache.php 
+================================================== 
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+final class AICache extends Model
+{
+    protected $table = 'ai_caches';
+    protected $fillable = [
+        'workspace_id',
+        'question_hash',
+        'normalized_question',
+        'answer',
+        'sources',
+        'confidence',
+        'provider',
+        'model',
+        'expires_at',
+        'hit_count',
+        'last_hit_at',
+    ];
+
+    protected $casts = [
+        'sources' => 'array',
+        'confidence' => 'float',
+        'expires_at' => 'datetime',
+        'last_hit_at' => 'datetime',
+        'hit_count' => 'integer',
+    ];
+}================================================== 
+D:\laragon\www\inamor\app\Models\AIRequest.php 
+================================================== 
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class AIRequest extends Model
+{
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $table = 'ai_requests';
+    protected $fillable = [
+
+        'workspace_id',
+
+        'user_id',
+
+        'provider',
+
+        'model',
+
+        'engine',
+
+        'question',
+
+        'status',
+
+        'latency',
+
+        'error_message',
+
+    ];
+
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array<string,string>
+     */
+    protected function casts(): array
+    {
+        return [
+
+            'workspace_id' => 'integer',
+
+            'user_id' => 'integer',
+
+            'latency' => 'integer',
+
+        ];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Relationships
+    |--------------------------------------------------------------------------
+    */
+
+    public function workspace(): BelongsTo
+    {
+        return $this->belongsTo(
+            Workspace::class
+        );
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(
+            User::class
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Helpers
+    |--------------------------------------------------------------------------
+    */
+
+    public function isSuccess(): bool
+    {
+        return $this->status === 'success';
+    }
+
+    public function isQuotaExceeded(): bool
+    {
+        return $this->status === 'quota';
+    }
+
+    public function isTimeout(): bool
+    {
+        return $this->status === 'timeout';
+    }
+
+    public function isFailed(): bool
+    {
+        return $this->status === 'failed';
+    }
+
+    public function isKnowledgeMemory(): bool
+    {
+        return $this->engine === 'knowledge_memory';
+    }
+
+    public function isManualKnowledge(): bool
+    {
+        return $this->engine === 'manual_knowledge';
+    }
+
+    public function isGemini(): bool
+    {
+        return $this->engine === 'gemini';
+    }
+}================================================== 
+D:\laragon\www\inamor\app\Models\Announcement.php 
+================================================== 
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class Announcement extends Model
+{
+    protected $fillable = [
+        'workspace_id',
+        'author_id',
+        'title',
+        'content',
+        'status',
+        'published_at',
+    ];
+
+    protected $casts = [
+        'published_at' => 'datetime',
+    ];
+
+    public function workspace(): BelongsTo
+    {
+        return $this->belongsTo(Workspace::class);
+    }
+
+    public function author(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'author_id');
+    }
+
+    public function scopePublished(Builder $query): Builder
+    {
+        return $query->where('status', 'published');
+    }
+
+    public function isPublished(): bool
+    {
+        return $this->status === 'published';
+    }
+}================================================== 
+D:\laragon\www\inamor\app\Models\CalendarEvent.php 
+================================================== 
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class CalendarEvent extends Model
+{
+    protected $fillable = [
+        'workspace_id',
+        'created_by',
+        'title',
+        'description',
+        'category',
+        'start_at',
+        'end_at',
+        'location',
+        'color',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'start_at' => 'datetime',
+            'end_at' => 'datetime',
+        ];
+    }
+
+    public function workspace(): BelongsTo
+    {
+        return $this->belongsTo(Workspace::class);
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * Label tanggal relatif untuk tampilan dashboard/widget.
+     * "Hari Ini" / "Besok" / format singkat seperti "30 Jul".
+     */
+    protected function dateLabel(): Attribute
+    {
+        return Attribute::make(
+            get: function () {
+                if ($this->start_at->isToday()) {
+                    return 'Hari Ini';
+                }
+
+                if ($this->start_at->isTomorrow()) {
+                    return 'Besok';
+                }
+
+                return $this->start_at->translatedFormat('d M');
+            }
+        );
+    }
+
+    /**
+     * Label rentang waktu. Menampilkan "07:30 - 08:59" jika end_at
+     * tersedia, atau "07:30" saja jika tidak.
+     */
+    protected function timeRangeLabel(): Attribute
+    {
+        return Attribute::make(
+            get: function () {
+                $start = $this->start_at->format('H:i');
+
+                if (! $this->end_at) {
+                    return $start;
+                }
+
+                return $start . ' - ' . $this->end_at->format('H:i');
+            }
+        );
+    }
+}================================================== 
+D:\laragon\www\inamor\app\Models\Document.php 
+================================================== 
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+
+class Document extends Model
+{
+    protected $fillable = [
+        'workspace_id',
+        'uploaded_by',
+        'title',
+        'file_name',
+        'file_path',
+        'mime_type',
+        'file_size',
+        'status',
+    ];
+
+    public function workspace(): BelongsTo
+    {
+        return $this->belongsTo(Workspace::class);
+    }
+
+    public function uploader(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'uploaded_by');
+    }
+
+    public function content(): HasOne
+    {
+        return $this->hasOne(DocumentContent::class);
+    }
+}================================================== 
+D:\laragon\www\inamor\app\Models\DocumentContent.php 
+================================================== 
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class DocumentContent extends Model
+{
+    protected $fillable = [
+        'document_id',
+        'raw_text',
+        'page_count',
+        'extraction_method',
+        'ocr_used',
+        'confidence',
+        'metadata',
+    ];
+
+    protected $casts = [
+        'ocr_used' => 'boolean',
+        'confidence' => 'float',
+        'metadata' => 'array',
+    ];
+
+    public function document(): BelongsTo
+    {
+        return $this->belongsTo(Document::class);
+    }
+}================================================== 
+D:\laragon\www\inamor\app\Models\KnowledgeFeedback.php 
+================================================== 
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class KnowledgeFeedback extends Model
+{
+    /**
+     * The table associated with the model.
+     */
+    protected $table = 'knowledge_feedbacks';
+
+    /**
+     * The attributes that are mass assignable.
+     */
+    protected $fillable = [
+        'workspace_id',
+        'question',
+        'normalized_question',
+        'asked_count',
+        'status',
+    ];
+
+    /**
+     * The attributes that should be cast.
+     */
+    protected $casts = [
+        'asked_count' => 'integer',
+    ];
+
+    /**
+     * Get the workspace that owns this feedback.
+     */
+    public function workspace(): BelongsTo
+    {
+        return $this->belongsTo(Workspace::class);
+    }
+
+    /**
+     * Determine whether the feedback is pending.
+     */
+    public function isPending(): bool
+    {
+        return $this->status === 'pending';
+    }
+
+    /**
+     * Determine whether the feedback has been resolved.
+     */
+    public function isResolved(): bool
+    {
+        return $this->status === 'resolved';
+    }
+
+    /**
+     * Increment the number of times this question has been asked.
+     */
+    public function incrementAskedCount(): void
+    {
+        $this->increment('asked_count');
+    }
+
+    /**
+     * Mark this feedback as resolved.
+     */
+    public function markAsResolved(): void
+    {
+        $this->update([
+            'status' => 'resolved',
+        ]);
+    }
+}================================================== 
+D:\laragon\www\inamor\app\Models\KnowledgeMemory.php 
+================================================== 
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class KnowledgeMemory extends Model
+{
+    protected $fillable = [
+
+        'workspace_id',
+
+        'source_type',
+
+        'source_id',
+
+        'title',
+
+        'knowledge',
+
+        'page_number',
+
+        'confidence',
+
+        'status',
+
+    ];
+
+    protected $casts = [
+
+        'confidence' => 'float',
+
+    ];
+
+    public function workspace(): BelongsTo
+    {
+        return $this->belongsTo(
+            Workspace::class
+        );
+    }
+
+    public function aliases(): HasMany
+    {
+        return $this->hasMany(
+            KnowledgeMemoryAlias::class
+        );
+    }
+}================================================== 
+D:\laragon\www\inamor\app\Models\KnowledgeMemoryAlias.php 
+================================================== 
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class KnowledgeMemoryAlias extends Model
+{
+    protected $fillable = [
+
+        'knowledge_memory_id',
+
+        'alias',
+
+    ];
+
+    public function memory(): BelongsTo
+    {
+        return $this->belongsTo(
+            KnowledgeMemory::class,
+            'knowledge_memory_id'
+        );
+    }
+}================================================== 
+D:\laragon\www\inamor\app\Models\ManualKnowledge.php 
+================================================== 
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class ManualKnowledge extends Model
+{
+    protected $table = 'manual_knowledges';
+
+    protected $fillable = [
+        'workspace_id',
+        'created_by',
+        'title',
+        'content',
+        'status',
+    ];
+
+    public function workspace(): BelongsTo
+    {
+        return $this->belongsTo(Workspace::class);
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function isDraft(): bool
+    {
+        return $this->status === 'draft';
+    }
+
+    public function isPublished(): bool
+    {
+        return $this->status === 'published';
+    }
+
+    public function publish(): void
+    {
+        $this->update([
+            'status' => 'published',
+        ]);
+    }
+
+    public function draft(): void
+    {
+        $this->update([
+            'status' => 'draft',
+        ]);
+    }
+    public function index(Request $request)
+{
+    $knowledges = $this->manualKnowledgeService
+        ->getWorkspaceKnowledge($request->user());
+
+    return view('knowledge.manual.index', [
+        'knowledges' => $knowledges,
+    ]);
+}
+}================================================== 
+D:\laragon\www\inamor\app\Models\Notification.php 
+================================================== 
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+final class Notification extends Model
+{
+    protected $table = 'notifications';
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
+    protected $fillable = [
+        'id',
+        'workspace_id',
+        'user_id',
+        'type',
+        'title',
+        'message',
+        'data',
+        'read_at',
+    ];
+
+    protected $casts = [
+        'data' => 'array',
+        'read_at' => 'datetime',
+    ];
+
+    /*
+    |--------------------------------------------------------------------------
+    | Relationships
+    |--------------------------------------------------------------------------
+    */
+
+    public function workspace(): BelongsTo
+    {
+        return $this->belongsTo(
+            Workspace::class,
+            'workspace_id'
+        );
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(
+            User::class,
+            'user_id'
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Scopes
+    |--------------------------------------------------------------------------
+    */
+
+    public function scopeUnread(Builder $query): Builder
+    {
+        return $query->whereNull('read_at');
+    }
+
+    public function scopeRead(Builder $query): Builder
+    {
+        return $query->whereNotNull('read_at');
+    }
+
+    public function scopeForWorkspace(
+        Builder $query,
+        int $workspaceId
+    ): Builder {
+        return $query->where('workspace_id', $workspaceId);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Helpers
+    |--------------------------------------------------------------------------
+    */
+
+    public function markAsRead(): bool
+    {
+        if ($this->read_at !== null) {
+            return true;
+        }
+
+        return $this->update([
+            'read_at' => now(),
+        ]);
+    }
+
+    public function markAsUnread(): bool
+    {
+        return $this->update([
+            'read_at' => null,
+        ]);
+    }
+}================================================== 
+D:\laragon\www\inamor\app\Models\User.php 
+================================================== 
+<?php
+
+namespace App\Models;
+
+use Database\Factories\UserFactory;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Models\Notification;
+
+
+#[Fillable(['name',
+'email',
+'password',
+
+'avatar',
+
+'username',
+
+'bio',
+
+'phone',
+
+'job_title',
+
+'department',
+
+'location',
+
+'current_workspace_id',])]
+#[Hidden(['password', 'remember_token'])]
+class User extends Authenticatable implements MustVerifyEmail
+{
+    use HasFactory, Notifiable;
+
+    public function ownedWorkspaces(): HasMany
+    {
+        return $this->hasMany(Workspace::class, 'owner_id');
+    }
+
+    public function workspaceMemberships(): HasMany
+    {
+        return $this->hasMany(WorkspaceMember::class);
+    }
+
+    public function currentWorkspace(): BelongsTo
+    {
+        return $this->belongsTo(Workspace::class, 'current_workspace_id');
+    }
+    public function joinRequests(): HasMany
+{
+    return $this->hasMany(
+        WorkspaceJoinRequest::class
+    );
+}
+public function createdWorkspaceInvitations(): HasMany
+{
+    return $this->hasMany(
+        WorkspaceInvitation::class,
+        'created_by'
+    );
+}
+public function notifications(): HasMany
+{
+    return $this->hasMany(
+        Notification::class,
+        'user_id'
+    );
+}
+
+public function reviewedJoinRequests(): HasMany
+{
+    return $this->hasMany(
+        WorkspaceJoinRequest::class,
+        'reviewed_by'
+    );
+}
+
+    protected function casts(): array
+    {
+        return [
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+        ];
+    }
+
+    public function uploadedDocuments(): HasMany
+{
+    return $this->hasMany(Document::class, 'uploaded_by');
+}
+}================================================== 
+D:\laragon\www\inamor\app\Models\Workspace.php 
+================================================== 
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+
+class Workspace extends Model
+{
+    use SoftDeletes;
+
+    protected $fillable = [
+        'uuid',
+        'owner_id',
+        'name',
+        'slug',
+        'logo',
+        'description',
+        'visibility',
+    ];
+
+    /*
+    |--------------------------------------------------------------------------
+    | Owner
+    |--------------------------------------------------------------------------
+    */
+
+    public function owner(): BelongsTo
+    {
+        return $this->belongsTo(
+            User::class,
+            'owner_id'
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Members
+    |--------------------------------------------------------------------------
+    */
+
+    public function members(): HasMany
+    {
+        return $this->hasMany(
+            WorkspaceMember::class
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Documents
+    |--------------------------------------------------------------------------
+    */
+
+    public function documents(): HasMany
+    {
+        return $this->hasMany(
+            Document::class
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Calendar
+    |--------------------------------------------------------------------------
+    */
+
+    public function calendarEvents(): HasMany
+    {
+        return $this->hasMany(
+            CalendarEvent::class
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Manual Knowledge
+    |--------------------------------------------------------------------------
+    */
+
+    public function manualKnowledges(): HasMany
+    {
+        return $this->hasMany(
+            ManualKnowledge::class
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Knowledge Feedback
+    |--------------------------------------------------------------------------
+    */
+
+    public function knowledgeFeedbacks(): HasMany
+    {
+        return $this->hasMany(
+            KnowledgeFeedback::class
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Join Requests
+    |--------------------------------------------------------------------------
+    */
+
+    public function joinRequests(): HasMany
+    {
+        return $this->hasMany(
+            WorkspaceJoinRequest::class
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Invitation
+    |--------------------------------------------------------------------------
+    */
+
+    public function invitation(): HasOne
+    {
+        return $this->hasOne(
+            WorkspaceInvitation::class
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Announcements
+    |--------------------------------------------------------------------------
+    */
+
+    public function announcements(): HasMany
+    {
+        return $this->hasMany(
+            Announcement::class
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Chat Conversations
+    |--------------------------------------------------------------------------
+    */
+
+    public function chatConversations(): HasMany
+    {
+        return $this->hasMany(
+            WorkspaceConversation::class
+        );
+    }
+}================================================== 
+D:\laragon\www\inamor\app\Models\WorkspaceConversation.php 
+================================================== 
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class WorkspaceConversation extends Model
+{
+    protected $fillable = [
+        'workspace_id',
+        'created_by',
+        'title',
+    ];
+
+    public function workspace(): BelongsTo
+    {
+        return $this->belongsTo(Workspace::class);
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function messages(): HasMany
+    {
+        return $this->hasMany(WorkspaceMessage::class, 'conversation_id');
+    }
+}================================================== 
+D:\laragon\www\inamor\app\Models\WorkspaceInvitation.php 
+================================================== 
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class WorkspaceInvitation extends Model
+{
+    protected $fillable = [
+        'workspace_id',
+
+        'created_by',
+
+        'token',
+
+        'status',
+
+        'expires_at',
+
+        'last_used_at',
+
+        'usage_count',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'expires_at' => 'datetime',
+
+            'last_used_at' => 'datetime',
+        ];
+    }
+
+    public function workspace(): BelongsTo
+    {
+        return $this->belongsTo(
+            Workspace::class
+        );
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(
+            User::class,
+            'created_by'
+        );
+    }
+}================================================== 
+D:\laragon\www\inamor\app\Models\WorkspaceJoinRequest.php 
+================================================== 
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
+
+class WorkspaceJoinRequest extends Model
+{
+    use SoftDeletes;
+    protected $fillable = [
+        'workspace_id',
+        'user_id',
+
+        'full_name',
+        'email',
+
+        'identity_card_path',
+        'selfie_with_identity_card_path',
+
+        'status',
+
+        'reviewed_by',
+        'reviewed_at',
+        'rejection_reason',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'reviewed_at' => 'datetime',
+        ];
+    }
+
+    public function workspace(): BelongsTo
+    {
+        return $this->belongsTo(Workspace::class);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function reviewer(): BelongsTo
+    {
+        return $this->belongsTo(
+            User::class,
+            'reviewed_by'
+        );
+    }
+}================================================== 
+D:\laragon\www\inamor\app\Models\WorkspaceMember.php 
+================================================== 
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class WorkspaceMember extends Model
+{
+    protected $fillable = [
+        'workspace_id',
+        'user_id',
+        'role',
+    ];
+
+    /*
+    |--------------------------------------------------------------------------
+    | Relationships
+    |--------------------------------------------------------------------------
+    */
+
+    public function workspace(): BelongsTo
+    {
+        return $this->belongsTo(
+            Workspace::class
+        );
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(
+            User::class
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Helpers
+    |--------------------------------------------------------------------------
+    */
+
+    public function isOwner(): bool
+    {
+        return $this->role === 'owner';
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    public function isMember(): bool
+    {
+        return $this->role === 'member';
+    }
+
+    public function isViewer(): bool
+    {
+        return $this->role === 'viewer';
+    }
+}================================================== 
+D:\laragon\www\inamor\app\Models\WorkspaceMessage.php 
+================================================== 
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class WorkspaceMessage extends Model
+{
+    protected $fillable = [
+        'conversation_id',
+        'user_id',
+        'message',
+    ];
+
+    public function conversation(): BelongsTo
+    {
+        return $this->belongsTo(WorkspaceConversation::class, 'conversation_id');
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+}

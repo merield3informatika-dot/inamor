@@ -1,0 +1,2887 @@
+================================================== 
+D:\laragon\www\inamor\app\Http\Controllers\AIAnalyticsController.php 
+================================================== 
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Services\AI\AIAnalyticsService;
+use App\Services\Workspace\WorkspaceResolver;
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
+final class AIAnalyticsController extends Controller
+{
+    public function __construct(
+        private readonly AIAnalyticsService $analyticsService,
+        private readonly WorkspaceResolver $workspaceResolver,
+    ) {
+    }
+
+    public function index(Request $request): View
+    {
+        // Resolve tenant ID aman berdasarkan profil authenticated user (tidak dari parameter URL)
+        $workspaceId = $this->workspaceResolver->resolveId($request->user());
+
+        // Lempar ID workspace ke service statistik untuk membatasi query.
+        $data = $this->analyticsService->statistics($workspaceId);
+
+        return view('ai-analytics.index', [
+            'data' => $data,
+        ]);
+    }
+}================================================== 
+D:\laragon\www\inamor\app\Http\Controllers\AIController.php 
+================================================== 
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Services\Knowledge\KnowledgeService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Throwable;
+
+final class AIController extends Controller
+{
+    public function __construct(
+        private readonly KnowledgeService $knowledgeService,
+    ) {
+    }
+
+    public function chat(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'message' => ['required', 'string', 'max:2000'],
+        ]);
+
+        try {
+            $answer = $this->knowledgeService->ask(
+                $request->user(),
+                $validated['message']
+            );
+        } catch (Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'answer' => 'Terjadi kesalahan saat memproses pertanyaan Anda.',
+                'sources' => [],
+            ], 500);
+        }
+
+        return response()->json($answer->toArray());
+    }
+}================================================== 
+D:\laragon\www\inamor\app\Http\Controllers\AnnouncementController.php 
+================================================== 
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Announcement;
+use App\Models\WorkspaceMember;
+use App\Services\Announcement\AnnouncementService;
+use App\Services\WorkspaceService;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
+final class AnnouncementController extends Controller
+{
+    public function __construct(
+        private readonly AnnouncementService $announcementService,
+        private readonly WorkspaceService $workspaceService,
+    ) {
+    }
+
+    public function index(Request $request): View
+    {
+        $workspace = $this->workspaceService->resolveActive($request->user());
+
+        $isAdmin = $this->isWorkspaceAdmin($workspace->id, $request->user()->id);
+
+        $announcements = $this->announcementService->list(
+            $workspace,
+            onlyPublished: ! $isAdmin,
+        );
+
+        return view('announcements.index', [
+            'announcements' => $announcements,
+            'isAdmin' => $isAdmin,
+        ]);
+    }
+
+    public function create(Request $request): View
+    {
+        $workspace = $this->workspaceService->resolveActive($request->user());
+
+        $this->authorizeAdmin($workspace->id, $request->user()->id, 'membuat');
+
+        return view('announcements.create');
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $workspace = $this->workspaceService->resolveActive($request->user());
+
+        $this->authorizeAdmin($workspace->id, $request->user()->id, 'membuat');
+
+        $validated = $request->validate([
+            'title' => ['required', 'string', 'max:255'],
+            'content' => ['required', 'string'],
+        ]);
+
+        $this->announcementService->create(
+            $workspace,
+            $request->user(),
+            $validated,
+        );
+
+        return redirect()
+            ->route('announcements.index')
+            ->with('status', 'Pengumuman berhasil disimpan sebagai draft.');
+    }
+
+    public function edit(Request $request, Announcement $announcement): View
+    {
+        $workspace = $this->workspaceService->resolveActive($request->user());
+
+        $this->ensureBelongsToWorkspace($announcement, $workspace->id);
+
+        $this->authorizeAdmin($workspace->id, $request->user()->id, 'mengubah');
+
+        return view('announcements.edit', [
+            'announcement' => $announcement,
+        ]);
+    }
+
+    public function update(Request $request, Announcement $announcement): RedirectResponse
+    {
+        $workspace = $this->workspaceService->resolveActive($request->user());
+
+        $this->ensureBelongsToWorkspace($announcement, $workspace->id);
+
+        $this->authorizeAdmin($workspace->id, $request->user()->id, 'mengubah');
+
+        $validated = $request->validate([
+            'title' => ['required', 'string', 'max:255'],
+            'content' => ['required', 'string'],
+        ]);
+
+        $this->announcementService->update($announcement, $validated);
+
+        return redirect()
+            ->route('announcements.index')
+            ->with('status', 'Pengumuman berhasil diperbarui.');
+    }
+
+    public function destroy(Request $request, Announcement $announcement): RedirectResponse
+    {
+        $workspace = $this->workspaceService->resolveActive($request->user());
+
+        $this->ensureBelongsToWorkspace($announcement, $workspace->id);
+
+        $this->authorizeAdmin($workspace->id, $request->user()->id, 'menghapus');
+
+        $this->announcementService->delete($announcement);
+
+        return redirect()
+            ->route('announcements.index')
+            ->with('status', 'Pengumuman berhasil dihapus.');
+    }
+
+    public function publish(Request $request, Announcement $announcement): RedirectResponse
+    {
+        $workspace = $this->workspaceService->resolveActive($request->user());
+
+        $this->ensureBelongsToWorkspace($announcement, $workspace->id);
+
+        $this->authorizeAdmin($workspace->id, $request->user()->id, 'mempublikasikan');
+
+        $this->announcementService->publish($announcement);
+
+        return redirect()
+            ->route('announcements.index')
+            ->with('status', 'Pengumuman berhasil dipublikasikan.');
+    }
+
+    private function ensureBelongsToWorkspace(Announcement $announcement, int $workspaceId): void
+    {
+        abort_if($announcement->workspace_id !== $workspaceId, 404);
+    }
+
+    private function authorizeAdmin(int $workspaceId, int $userId, string $action): void
+    {
+        abort_unless(
+            $this->isWorkspaceAdmin($workspaceId, $userId),
+            403,
+            "Hanya admin workspace yang dapat {$action} pengumuman."
+        );
+    }
+
+    private function isWorkspaceAdmin(int $workspaceId, int $userId): bool
+    {
+        $member = WorkspaceMember::query()
+            ->where('workspace_id', $workspaceId)
+            ->where('user_id', $userId)
+            ->first();
+
+        return $member !== null && ($member->isOwner() || $member->isAdmin());
+    }
+}================================================== 
+D:\laragon\www\inamor\app\Http\Controllers\CalendarController.php 
+================================================== 
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\CalendarEvent;
+use App\Services\Calendar\CalendarNotificationService;
+use App\Services\WorkspaceService;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\View\View;
+
+class CalendarController extends Controller
+{
+    public function __construct(
+        private readonly WorkspaceService $workspaceService,
+        private readonly CalendarNotificationService $calendarNotificationService,
+    ) {
+    }
+
+    public function index(Request $request): View
+    {
+        $workspace = $this->workspaceService->resolveActive($request->user());
+
+        $events = $workspace->calendarEvents()
+            ->orderBy('start_at')
+            ->get();
+
+        return view('calendar.index', [
+            'events' => $events,
+        ]);
+    }
+
+    public function create(Request $request): View
+    {
+        // Resolve workspace hanya untuk memastikan user punya akses;
+        // tidak ada data lain yang dibutuhkan form create.
+        $this->workspaceService->resolveActive($request->user());
+
+        return view('calendar.create');
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $workspace = $this->workspaceService->resolveActive($request->user());
+
+        $validated = $request->validate([
+            'title' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'category' => ['required', 'string', 'max:100'],
+            'start_at' => ['required', 'date'],
+            'end_at' => ['nullable', 'date', 'after_or_equal:start_at'],
+            'location' => ['nullable', 'string', 'max:255'],
+            'color' => ['nullable', 'string', 'max:20'],
+        ]);
+
+        DB::transaction(function () use ($workspace, $request, $validated) {
+
+            $event = $workspace->calendarEvents()->create([
+                ...$validated,
+                'created_by' => $request->user()->id,
+            ]);
+
+            $this->calendarNotificationService->notifyCreated($event);
+
+        });
+
+        return redirect()
+            ->route('calendar.index')
+            ->with('status', 'Kegiatan berhasil ditambahkan.');
+    }
+
+public function edit(Request $request, CalendarEvent $calendar): View
+{
+    $workspace = $this->workspaceService->resolveActive($request->user());
+
+    abort_if($calendar->workspace_id !== $workspace->id, 404);
+
+    return view('calendar.edit', [
+        'event' => $calendar,
+    ]);
+}
+
+public function update(Request $request, CalendarEvent $calendar): RedirectResponse
+{
+    $workspace = $this->workspaceService->resolveActive($request->user());
+
+    abort_if($calendar->workspace_id !== $workspace->id, 404);
+
+    $validated = $request->validate([
+        'title' => ['required', 'string', 'max:255'],
+        'description' => ['nullable', 'string'],
+        'category' => ['required', 'string', 'max:100'],
+        'start_at' => ['required', 'date'],
+        'end_at' => ['nullable', 'date', 'after_or_equal:start_at'],
+        'location' => ['nullable', 'string', 'max:255'],
+        'color' => ['nullable', 'string', 'max:20'],
+    ]);
+
+    // Intentionally NOT calling calendarNotificationService here —
+    // notifications are only sent on CREATE, never on update.
+    $calendar->update($validated);
+
+    return redirect()
+        ->route('calendar.index')
+        ->with('status', 'Kegiatan berhasil diperbarui.');
+}
+
+public function destroy(Request $request, CalendarEvent $calendar): RedirectResponse
+{
+    $workspace = $this->workspaceService->resolveActive($request->user());
+
+    abort_if($calendar->workspace_id !== $workspace->id, 404);
+
+    $calendar->delete();
+
+    return redirect()
+        ->route('calendar.index');
+    }
+}================================================== 
+D:\laragon\www\inamor\app\Http\Controllers\Controller.php 
+================================================== 
+<?php
+
+namespace App\Http\Controllers;
+
+abstract class Controller
+{
+    //
+}
+================================================== 
+D:\laragon\www\inamor\app\Http\Controllers\DashboardController.php 
+================================================== 
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\CalendarEvent;
+use App\Models\KnowledgeFeedback;
+use App\Models\ManualKnowledge;
+use App\Services\Announcement\AnnouncementService;
+use App\Services\AI\AIAnalyticsService;
+use App\Services\WorkspaceService;
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
+class DashboardController extends Controller
+{
+    public function __construct(
+        private readonly WorkspaceService $workspaceService,
+        private readonly AIAnalyticsService $analyticsService,
+        private readonly AnnouncementService $announcementService,
+    ) {
+    }
+
+    public function index(Request $request): View
+    {
+        /*
+        |--------------------------------------------------------------------------
+        | Active Workspace
+        |--------------------------------------------------------------------------
+        */
+
+        $workspace = $this->workspaceService->resolveActive(
+            $request->user()
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Dashboard Stats
+        |--------------------------------------------------------------------------
+        */
+
+        $stats = [
+            'document_count_today' => $workspace->documents()
+                ->whereDate('created_at', today())
+                ->count(),
+
+            'pending_feedback' => KnowledgeFeedback::query()
+                ->where('workspace_id', $workspace->id)
+                ->where('status', 'pending')
+                ->count(),
+
+            'announcement_count' => $workspace->announcements()
+                ->published()
+                ->count(),
+
+            'manual_knowledge_count' => ManualKnowledge::query()
+                ->where('workspace_id', $workspace->id)
+                ->count(),
+        ];
+
+        /*
+        |--------------------------------------------------------------------------
+        | Upcoming Calendar Events
+        |--------------------------------------------------------------------------
+        */
+
+        $upcomingEvents = CalendarEvent::query()
+            ->where('workspace_id', $workspace->id)
+            ->where('start_at', '>=', now())
+            ->orderBy('start_at')
+            ->limit(3)
+            ->get();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Recent Documents
+        |--------------------------------------------------------------------------
+        */
+
+        $recentDocuments = $workspace->documents()
+            ->latest()
+            ->limit(5)
+            ->get();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Recent Activities
+        |--------------------------------------------------------------------------
+        |
+        | ActivityLog belum digunakan pada dashboard saat ini.
+        | Tetap kirim collection kosong supaya component aman.
+        |
+        */
+
+        $recentActivities = collect();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Announcements
+        |--------------------------------------------------------------------------
+        |
+        | Menampilkan pengumuman published terbaru untuk workspace aktif.
+        |
+        */
+
+        $announcements = $this->announcementService
+            ->list($workspace, onlyPublished: true)
+            ->take(3);
+
+        /*
+        |--------------------------------------------------------------------------
+        | AI Analytics
+        |--------------------------------------------------------------------------
+        |
+        | IMPORTANT:
+        | Analytics harus dibatasi berdasarkan workspace aktif.
+        |
+        | Data ini digunakan oleh:
+        | - Statistik Layanan
+        | - AI Engine
+        | - Mini chart dashboard
+        | - AI Analytics detail
+        |
+        */
+
+        $analytics = $this->analyticsService->statistics(
+            $workspace->id
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Service Statistics
+        |--------------------------------------------------------------------------
+        |
+        | Jangan bikin dummy.
+        |
+        | Data statistik sidebar akan membaca langsung dari
+        | AI Analytics yang berasal dari database.
+        |
+        */
+
+        $overview = $analytics['overview'] ?? [];
+
+        $serviceStats = collect([
+            (object) [
+                'label' => 'AI Requests',
+                'value' => number_format(
+                    (int) ($overview['requests_today'] ?? 0)
+                ),
+                'meta' => 'hari ini',
+            ],
+
+            (object) [
+                'label' => 'Success Rate',
+                'value' => ($overview['success_rate'] ?? 0) . '%',
+                'meta' => 'request berhasil',
+            ],
+
+            (object) [
+                'label' => 'Response',
+                'value' => number_format(
+                    (int) ($overview['today_avg_response_ms'] ?? 0)
+                ) . ' ms',
+                'meta' => 'rata-rata hari ini',
+            ],
+
+            (object) [
+                'label' => 'AI Saved',
+                'value' => ($overview['ai_saved_pct'] ?? 0) . '%',
+                'meta' => 'efisiensi AI',
+            ],
+        ]);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Performance Data
+        |--------------------------------------------------------------------------
+        |
+        | Dipisahkan supaya component dashboard bisa langsung
+        | menggunakan data 7 hari terakhir untuk mini chart.
+        |
+        */
+
+        $performance = $analytics['performance']['requests'] ?? [];
+
+        /*
+        |--------------------------------------------------------------------------
+        | Return Dashboard
+        |--------------------------------------------------------------------------
+        */
+
+        return view('dashboard', [
+            'workspace' => $workspace,
+
+            'stats' => $stats,
+
+            'upcomingEvents' => $upcomingEvents,
+
+            'recentDocuments' => $recentDocuments,
+
+            'recentActivities' => $recentActivities,
+
+            'announcements' => $announcements,
+
+            'serviceStats' => $serviceStats,
+
+            'analytics' => $analytics,
+
+            'performance' => $performance,
+        ]);
+    }
+}================================================== 
+D:\laragon\www\inamor\app\Http\Controllers\DocumentController.php 
+================================================== 
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Document;
+use App\Services\DocumentService;
+use Illuminate\Http\Request;
+
+class DocumentController extends Controller
+{
+    public function __construct(
+        protected DocumentService $documentService
+    ) {}
+
+    public function index(Request $request)
+    {
+        return view('documents.index', [
+            'documents' => $this->documentService
+                ->getDocuments($request->user())
+                // Load relasi content agar metadata tersedia di index UI
+                ->load('content'),
+        ]);
+    }
+
+    public function create()
+    {
+        return view('documents.create');
+    }
+
+    public function store(Request $request)
+    {
+        $maxSizeKb = (int) config('document.upload.max_size_kb', 20480);
+
+        $request->validate([
+            'title' => ['required', 'string', 'max:255'],
+            'document' => [
+                'required',
+                'file',
+                'max:' . $maxSizeKb,
+                'mimes:pdf,docx,xlsx,xls,csv,pptx,txt,jpg,jpeg,png,webp',
+            ],
+        ]);
+
+        $this->documentService->upload(
+            $request->user(),
+            $request->string('title')->toString(),
+            $request->file('document')
+        );
+
+        return redirect()
+            ->route('documents.index')
+            ->with('success', 'Document uploaded successfully.');
+    }
+
+    public function show(Request $request, Document $document)
+    {
+        $document = $this->documentService->getDocumentForPreview($request->user(), $document);
+
+        return view('documents.show', [
+            'document' => $document
+        ]);
+    }
+
+    public function archive(Request $request, Document $document)
+    {
+        $this->documentService->archive($request->user(), $document);
+
+        return back()->with('success', 'Document archived successfully. It will no longer be used by the AI.');
+    }
+
+    public function restore(Request $request, Document $document)
+    {
+        $this->documentService->restore($request->user(), $document);
+
+        return back()->with('success', 'Document restored! AI can now retrieve knowledge from it.');
+    }
+
+    public function destroy(Request $request, Document $document)
+    {
+        $this->documentService->delete($request->user(), $document);
+
+        return redirect()
+            ->route('documents.index')
+            ->with('success', 'Document and its extracted knowledge have been permanently deleted.');
+    }
+}================================================== 
+D:\laragon\www\inamor\app\Http\Controllers\MobileAccountController.php 
+================================================== 
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
+final class MobileAccountController extends Controller
+{
+    public function index(Request $request): View
+    {
+        return view('mobile.account', [
+            'user' => $request->user(),
+        ]);
+    }
+
+    public function edit(Request $request): View
+    {
+        return view('mobile.account-edit', [
+            'user' => $request->user(),
+        ]);
+    }
+}================================================== 
+D:\laragon\www\inamor\app\Http\Controllers\MobileAIController.php 
+================================================== 
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
+final class MobileAIController extends Controller
+{
+    public function index(Request $request): View
+    {
+        return view('mobile.ai.index', [
+            'user' => $request->user(),
+        ]);
+    }
+}================================================== 
+D:\laragon\www\inamor\app\Http\Controllers\MobileCalendarController.php 
+================================================== 
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Services\WorkspaceService;
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
+final class MobileCalendarController extends Controller
+{
+    public function __construct(
+        private readonly WorkspaceService $workspaceService,
+    ) {
+    }
+
+    public function index(Request $request): View
+    {
+        $user = $request->user();
+
+        $workspace = $this->workspaceService->resolveActive($user);
+
+        $events = $workspace->calendarEvents()
+            ->where('start_at', '>=', now()->startOfDay())
+            ->orderBy('start_at')
+            ->get();
+
+        return view('mobile.calendar.index', [
+            'user' => $user,
+            'workspace' => $workspace,
+            'events' => $events,
+        ]);
+    }
+}================================================== 
+D:\laragon\www\inamor\app\Http\Controllers\MobileChatController.php 
+================================================== 
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Services\Chat\WorkspaceChatService;
+use App\Services\WorkspaceService;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
+final class MobileChatController extends Controller
+{
+    public function __construct(
+        private readonly WorkspaceChatService $chatService,
+        private readonly WorkspaceService $workspaceService,
+    ) {
+    }
+
+    /**
+     * Mobile chat home.
+     */
+    public function index(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+
+        $workspace = $this->workspaceService->resolveActive($user);
+
+        $conversation = $this->chatService->conversations($workspace)->first()
+            ?? $this->chatService->ensureDefaultConversation(
+                $workspace,
+                $user,
+            );
+
+        return redirect()->route(
+            'mobile.chat.show',
+            $conversation->id,
+        );
+    }
+
+    /**
+     * Mobile conversation.
+     */
+    public function show(
+        Request $request,
+        int $conversation,
+    ): View {
+        $user = $request->user();
+
+        $workspace = $this->workspaceService->resolveActive($user);
+
+        $activeConversation = $this->chatService->findForWorkspace(
+            $workspace,
+            $conversation,
+        );
+
+        return view('mobile.chat.show', [
+            'user' => $user,
+            'workspace' => $workspace,
+            'conversations' => $this->chatService->conversations($workspace),
+            'activeConversation' => $activeConversation,
+            'messages' => $this->chatService->messages(
+                $activeConversation,
+            ),
+        ]);
+    }
+
+    /**
+     * Send a mobile chat message.
+     */
+    public function sendMessage(
+        Request $request,
+        int $conversation,
+    ): RedirectResponse {
+        $user = $request->user();
+
+        $workspace = $this->workspaceService->resolveActive($user);
+
+        $activeConversation = $this->chatService->findForWorkspace(
+            $workspace,
+            $conversation,
+        );
+
+        $validated = $request->validate([
+            'message' => [
+                'required',
+                'string',
+                'max:5000',
+            ],
+        ]);
+
+        $this->chatService->sendMessage(
+            $activeConversation,
+            $user,
+            $validated['message'],
+        );
+
+        return redirect()->route(
+            'mobile.chat.show',
+            $activeConversation->id,
+        );
+    }
+}================================================== 
+D:\laragon\www\inamor\app\Http\Controllers\MobileController.php 
+================================================== 
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Services\Notification\NotificationService;
+use App\Services\WorkspaceService;
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
+final class MobileController extends Controller
+{
+    public function __construct(
+        private readonly WorkspaceService $workspaceService,
+        private readonly NotificationService $notificationService,
+    ) {
+    }
+
+    public function home(Request $request): View
+    {
+        $user = $request->user();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Active Workspace
+        |--------------------------------------------------------------------------
+        */
+
+        $workspace = $this->workspaceService->resolveActive($user);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Latest Announcements
+        |--------------------------------------------------------------------------
+        */
+
+        $announcements = $workspace->announcements()
+            ->published()
+            ->latest('published_at')
+            ->latest('created_at')
+            ->limit(3)
+            ->get();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Upcoming Calendar
+        |--------------------------------------------------------------------------
+        */
+
+        $upcomingEvents = $workspace->calendarEvents()
+            ->where('start_at', '>=', now())
+            ->orderBy('start_at')
+            ->limit(5)
+            ->get();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Notifications
+        |--------------------------------------------------------------------------
+        */
+
+        $notifications = $this->notificationService->latest(
+            user: $user,
+            workspaceId: $workspace->id,
+            limit: 5,
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Unread Notification Count
+        |--------------------------------------------------------------------------
+        */
+
+        $unreadNotificationCount = $this->notificationService->unreadCount(
+            user: $user,
+            workspaceId: $workspace->id,
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Workspace Membership
+        |--------------------------------------------------------------------------
+        */
+
+        $membership = $user->workspaceMemberships()
+            ->where('workspace_id', $workspace->id)
+            ->first();
+
+        /*
+        |--------------------------------------------------------------------------
+        | View
+        |--------------------------------------------------------------------------
+        */
+
+        return view('mobile.home', [
+            'user' => $user,
+            'workspace' => $workspace,
+            'membership' => $membership,
+
+            'announcements' => $announcements,
+            'upcomingEvents' => $upcomingEvents,
+
+            'notifications' => $notifications,
+            'unreadNotificationCount' => $unreadNotificationCount,
+        ]);
+    }
+    public function notifications(Request $request): View
+{
+    $user = $request->user();
+
+    /*
+    |--------------------------------------------------------------------------
+    | Active Workspace
+    |--------------------------------------------------------------------------
+    */
+
+    $workspace = $this->workspaceService->resolveActive($user);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Notifications
+    |--------------------------------------------------------------------------
+    */
+
+    $notifications = $this->notificationService->latest(
+        user: $user,
+        workspaceId: $workspace->id,
+        limit: 50,
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | Unread Notification Count
+    |--------------------------------------------------------------------------
+    */
+
+    $unreadNotificationCount = $this->notificationService->unreadCount(
+        user: $user,
+        workspaceId: $workspace->id,
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | View
+    |--------------------------------------------------------------------------
+    */
+
+    return view('mobile.notifications', [
+        'user' => $user,
+        'workspace' => $workspace,
+        'notifications' => $notifications,
+        'unreadNotificationCount' => $unreadNotificationCount,
+    ]);
+}
+}================================================== 
+D:\laragon\www\inamor\app\Http\Controllers\NotificationController.php 
+================================================== 
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Services\Notification\NotificationService;
+use App\Services\Workspace\WorkspaceResolver;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\View\View;
+
+final class NotificationController extends Controller
+{
+    public function __construct(
+        private readonly NotificationService $notificationService,
+        private readonly WorkspaceResolver $workspaceResolver,
+    ) {
+    }
+
+    /**
+     * Notification page.
+     */
+   public function index(Request $request): View|JsonResponse
+{
+    $user = $request->user();
+
+    $workspaceId = $this->workspaceResolver->resolveId($user);
+
+    $limit = min(
+        max((int) $request->integer('limit', 20), 1),
+        50
+    );
+
+    $notifications = $this->notificationService->latest(
+        user: $user,
+        workspaceId: $workspaceId,
+        limit: $limit,
+    );
+
+    $unreadCount = $this->notificationService->unreadCount(
+        user: $user,
+        workspaceId: $workspaceId,
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | JSON response
+    |--------------------------------------------------------------------------
+    |
+    | Dipakai oleh notification card di topbar.
+    |
+    */
+
+    if ($request->expectsJson()) {
+        return response()->json([
+            'data' => $notifications->map(
+                fn ($notification) => [
+                    'id' => $notification->id,
+                    'type' => $notification->type,
+                    'title' => $notification->title,
+                    'message' => $notification->message,
+                    'data' => $notification->data,
+                    'read_at' => $notification->read_at?->toISOString(),
+                    'created_at' => $notification->created_at?->toISOString(),
+                ]
+            )->values(),
+        ]);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Blade response
+    |--------------------------------------------------------------------------
+    |
+    | Dipakai ketika user membuka /notifications.
+    |
+    */
+
+    return view('notifications.index', [
+        'notifications' => $notifications,
+        'unreadCount' => $unreadCount,
+    ]);
+}
+
+    /**
+     * Get unread notification count.
+     */
+    public function unreadCount(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $workspaceId = $this->workspaceResolver->resolveId($user);
+
+        $count = $this->notificationService->unreadCount(
+            user: $user,
+            workspaceId: $workspaceId,
+        );
+
+        return response()->json([
+            'count' => $count,
+        ]);
+    }
+
+    /**
+     * Mark one notification as read.
+     */
+    public function markAsRead(
+        Request $request,
+        string $notification,
+    ): JsonResponse {
+        $user = $request->user();
+
+        $workspaceId = $this->workspaceResolver->resolveId($user);
+
+        $updated = $this->notificationService->markAsRead(
+            user: $user,
+            workspaceId: $workspaceId,
+            notificationId: $notification,
+        );
+
+        if (! $updated) {
+            return response()->json([
+                'message' => 'Notification tidak ditemukan.',
+            ], 404);
+        }
+
+        return response()->json([
+            'message' => 'Notification ditandai sebagai sudah dibaca.',
+        ]);
+    }
+
+    /**
+     * Mark all current workspace notifications as read.
+     */
+    public function markAllAsRead(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $workspaceId = $this->workspaceResolver->resolveId($user);
+
+        $updated = $this->notificationService->markAllAsRead(
+            user: $user,
+            workspaceId: $workspaceId,
+        );
+
+        return response()->json([
+            'message' => 'Semua notification ditandai sebagai sudah dibaca.',
+            'updated' => $updated,
+        ]);
+    }
+}================================================== 
+D:\laragon\www\inamor\app\Http\Controllers\OnboardingController.php 
+================================================== 
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Services\WorkspaceService;
+use Illuminate\Http\Request;
+
+class OnboardingController extends Controller
+{
+    private const SESSION_KEY = 'onboarding';
+
+    public function __construct(
+        protected WorkspaceService $workspaceService,
+    ) {
+    }
+
+    /**
+     * Step 1 - Identity
+     */
+    public function identity()
+    {
+        return view('onboarding.identity', [
+            'identity' => session(self::SESSION_KEY . '.identity', []),
+        ]);
+    }
+
+    /**
+     * Store Identity
+     */
+    public function storeIdentity(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+
+            'bio' => [
+                'nullable',
+                'string',
+                'max:500',
+            ],
+
+            'logo' => [
+                'nullable',
+                'image',
+                'max:5120',
+            ],
+        ]);
+
+        if ($request->hasFile('logo')) {
+            $validated['logo'] = $request
+                ->file('logo')
+                ->store('workspaces', 'public');
+        }
+
+        session([
+            self::SESSION_KEY . '.identity' => $validated,
+        ]);
+
+        return redirect()->route('onboarding.privacy');
+    }
+
+    /**
+     * Step 2 - Privacy
+     */
+    public function privacy()
+    {
+        return view('onboarding.privacy', [
+            'privacy' => session(self::SESSION_KEY . '.privacy', []),
+        ]);
+    }
+
+    /**
+     * Store Privacy
+     */
+    public function storePrivacy(Request $request)
+    {
+        $validated = $request->validate([
+            'visibility' => [
+                'required',
+                'in:public,private',
+            ],
+        ]);
+
+        session([
+            self::SESSION_KEY . '.privacy' => $validated,
+        ]);
+
+        return redirect()->route('onboarding.knowledge');
+    }
+
+    /**
+     * Step 3 - Knowledge
+     */
+    public function knowledge()
+    {
+        return view('onboarding.knowledge', [
+            'knowledge' => session(self::SESSION_KEY . '.knowledge', []),
+        ]);
+    }
+
+    /**
+     * Finish Onboarding
+     */
+    public function storeKnowledge(Request $request)
+    {
+        $identity = session(self::SESSION_KEY . '.identity');
+        $privacy = session(self::SESSION_KEY . '.privacy');
+
+        if (! $identity || ! $privacy) {
+            return redirect()->route('onboarding.identity');
+        }
+
+        $this->workspaceService->create(
+            $request->user(),
+            [
+                'name' => $identity['name'],
+                'description' => $identity['bio'] ?? null,
+                'logo' => $identity['logo'] ?? null,
+                'visibility' => $privacy['visibility'],
+            ]
+        );
+
+        $request->session()->forget(self::SESSION_KEY);
+
+        return redirect()->route('dashboard');
+    }
+}================================================== 
+D:\laragon\www\inamor\app\Http\Controllers\ProfileController.php 
+================================================== 
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Http\Requests\ProfileUpdateRequest;
+use App\Services\UserProfileService;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Redirect;
+use Illuminate\View\View;
+
+class ProfileController extends Controller
+{
+    public function __construct(
+        protected UserProfileService $userProfileService,
+    ) {
+    }
+
+    /**
+     * Display profile page.
+     */
+    public function edit(
+        Request $request,
+    ): View {
+
+        return view(
+            'profile.edit',
+            [
+                'user' => $request->user(),
+            ],
+        );
+    }
+
+    /**
+     * Update profile.
+     */
+    public function update(
+        ProfileUpdateRequest $request,
+    ): RedirectResponse {
+
+        $user = $request->user();
+
+        $data = $request->validated();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Avatar Upload
+        |--------------------------------------------------------------------------
+        */
+
+        if ($request->hasFile('avatar')) {
+            $data['avatar'] = $request->file('avatar');
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Reset email verification if email changed
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            $user->email !== $data['email']
+        ) {
+            $data['email_verified_at'] = null;
+        }
+
+        $this->userProfileService->update(
+            $user,
+            $data,
+        );
+
+        return Redirect::route(
+            'profile.edit'
+        )->with(
+            'status',
+            'profile-updated',
+        );
+    }
+
+    /**
+     * Delete account.
+     */
+    public function destroy(
+        Request $request,
+    ): RedirectResponse {
+
+        $request->validateWithBag(
+            'userDeletion',
+            [
+                'password' => [
+                    'required',
+                    'current_password',
+                ],
+            ],
+        );
+
+        $user = $request->user();
+
+        Auth::logout();
+
+        $user->delete();
+
+        $request->session()->invalidate();
+
+        $request->session()->regenerateToken();
+
+        return Redirect::to('/');
+    }
+    public function show(
+    string $username,
+): View {
+
+   $user = $this->userProfileService
+    ->findByUsername(
+        $username
+    );
+
+abort_if(
+    ! $user,
+    404,
+);
+
+return view(
+    'people.show',
+    compact('user'),
+);
+}
+}================================================== 
+D:\laragon\www\inamor\app\Http\Controllers\WorkspaceChatController.php 
+================================================== 
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Services\Chat\WorkspaceChatService;
+use App\Services\WorkspaceService;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
+final class WorkspaceChatController extends Controller
+{
+    public function __construct(
+        private readonly WorkspaceChatService $chatService,
+        private readonly WorkspaceService $workspaceService,
+    ) {
+    }
+
+    /**
+     * GET /chat — redirects to the first (or default) conversation.
+     */
+ public function index(Request $request): RedirectResponse
+{
+    $workspace = $this->workspaceService->resolveActive(
+        $request->user()
+    );
+
+    $conversation = $this->chatService->conversations($workspace)->first()
+        ?? $this->chatService->ensureDefaultConversation(
+            $workspace,
+            $request->user()
+        );
+
+    return redirect()->route(
+        'workspace.chat.show',
+        $conversation->id
+    );
+}
+
+public function show(Request $request, int $conversation): View
+{
+    $workspace = $this->workspaceService->resolveActive(
+        $request->user()
+    );
+
+    $activeConversation = $this->chatService->findForWorkspace(
+        $workspace,
+        $conversation
+    );
+
+    return view('chat.chatpage', [
+        'conversations' => $this->chatService->conversations($workspace),
+        'activeConversation' => $activeConversation,
+        'messages' => $this->chatService->messages($activeConversation),
+    ]);
+}
+
+public function sendMessage(
+    Request $request,
+    int $conversation
+): RedirectResponse {
+    $workspace = $this->workspaceService->resolveActive(
+        $request->user()
+    );
+
+    $activeConversation = $this->chatService->findForWorkspace(
+        $workspace,
+        $conversation
+    );
+
+    $validated = $request->validate([
+        'message' => ['required', 'string', 'max:5000'],
+    ]);
+
+    $this->chatService->sendMessage(
+        $activeConversation,
+        $request->user(),
+        $validated['message'],
+    );
+
+    return redirect()->route(
+        'workspace.chat.show',
+        $activeConversation->id
+    );
+}
+}================================================== 
+D:\laragon\www\inamor\app\Http\Controllers\WorkspaceController.php 
+================================================== 
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Workspace;
+use App\Services\WorkspaceService;
+use Illuminate\Http\Request;
+
+class WorkspaceController extends Controller
+{
+    public function __construct(
+        protected WorkspaceService $workspaceService
+    ) {
+    }
+
+    public function create()
+    {
+        return view('workspaces.create.index');
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+            'description' => ['nullable', 'string', 'max:1000'],
+            'visibility' => ['required', 'in:public,private'],
+            'logo' => ['nullable', 'image', 'max:2048'],
+        ]);
+
+        if ($request->hasFile('logo')) {
+            $validated['logo'] = $request->file('logo')->store(
+                'workspace-logos',
+                'public'
+            );
+        }
+
+        $this->workspaceService->create(
+            $request->user(),
+            $validated
+        );
+
+        return redirect()->route('workspaces.success');
+    }
+
+    public function success(Request $request)
+    {
+        $workspace = $this->workspaceService->resolveActive(
+            $request->user()
+        );
+
+        return view('workspaces.create.success', [
+            'workspace' => $workspace,
+        ]);
+    }
+
+    public function switch(Request $request, Workspace $workspace)
+    {
+        $this->workspaceService->switchTo(
+            $request->user(),
+            $workspace
+        );
+
+        return redirect()->route('dashboard');
+    }
+
+    public function edit(Request $request)
+    {
+        $workspace = $this->workspaceService->resolveActive(
+            $request->user()
+        );
+
+        return view('workspaces.settings.general', [
+            'workspace' => $workspace,
+        ]);
+    }
+
+    public function update(Request $request)
+    {
+        $workspace = $this->workspaceService->resolveActive(
+            $request->user()
+        );
+
+        $validated = $request->validate([
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+            'description' => ['nullable', 'string', 'max:1000'],
+            'visibility' => ['required', 'in:public,private'],
+            'logo' => ['nullable', 'image', 'max:2048'],
+        ]);
+
+        if ($request->hasFile('logo')) {
+            $validated['logo'] = $request->file('logo')->store(
+                'workspace-logos',
+                'public'
+            );
+        } else {
+            unset($validated['logo']);
+        }
+
+        $this->workspaceService->update(
+            $workspace,
+            $validated
+        );
+
+        return redirect()
+            ->route('workspace.settings.edit')
+            ->with('status', 'Workspace berhasil diperbarui.');
+    }
+
+    public function danger(Request $request)
+    {
+        $workspace = $this->workspaceService->resolveActive(
+            $request->user()
+        );
+
+        return view('workspaces.settings.danger', [
+            'workspace' => $workspace,
+        ]);
+    }
+
+    public function destroy(Request $request)
+    {
+        $request->validate([
+            'password' => ['required', 'string'],
+        ]);
+
+        $hasFallbackWorkspace = $this->workspaceService->destroy(
+            $request->user(),
+            $request->string('password')->toString()
+        );
+
+        return $hasFallbackWorkspace
+            ? redirect()
+                ->route('dashboard')
+                ->with('status', 'Workspace berhasil dihapus.')
+            : redirect()
+                ->route('onboarding.identity')
+                ->with('status', 'Workspace berhasil dihapus.');
+    }
+    public function leave(Request $request): RedirectResponse
+{
+    $this->workspaceService->leave(
+        $request->user()
+    );
+
+    return redirect()
+        ->route('dashboard')
+        ->with(
+            'status',
+            'You have left the workspace.'
+        );
+}
+}================================================== 
+D:\laragon\www\inamor\app\Http\Controllers\Auth\AuthenticatedSessionController.php 
+================================================== 
+<?php
+
+namespace App\Http\Controllers\Auth;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\LoginRequest;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\View\View;
+
+class AuthenticatedSessionController extends Controller
+{
+    /**
+     * Display the login view.
+     */
+    public function create(): View
+    {
+        return view('auth.login');
+    }
+
+    /**
+     * Handle an incoming authentication request.
+     */
+    public function store(LoginRequest $request): RedirectResponse
+    {
+        $request->authenticate();
+
+        $request->session()->regenerate();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Workspace Invitation Redirect
+        |--------------------------------------------------------------------------
+        */
+
+        if ($request->session()->has('workspace_invitation_token')) {
+
+            $token = $request->session()->pull(
+                'workspace_invitation_token'
+            );
+
+            return redirect()->route(
+                'workspace.invitation.accept',
+                $token
+            );
+        }
+
+        return redirect()->intended(
+            route('dashboard', absolute: false)
+        );
+    }
+
+    /**
+     * Destroy an authenticated session.
+     */
+    public function destroy(Request $request): RedirectResponse
+    {
+        Auth::guard('web')->logout();
+
+        $request->session()->invalidate();
+
+        $request->session()->regenerateToken();
+
+        return redirect('/');
+    }
+}================================================== 
+D:\laragon\www\inamor\app\Http\Controllers\Auth\ConfirmablePasswordController.php 
+================================================== 
+<?php
+
+namespace App\Http\Controllers\Auth;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
+use Illuminate\View\View;
+
+class ConfirmablePasswordController extends Controller
+{
+    /**
+     * Show the confirm password view.
+     */
+    public function show(): View
+    {
+        return view('auth.confirm-password');
+    }
+
+    /**
+     * Confirm the user's password.
+     */
+    public function store(Request $request): RedirectResponse
+    {
+        if (! Auth::guard('web')->validate([
+            'email' => $request->user()->email,
+            'password' => $request->password,
+        ])) {
+            throw ValidationException::withMessages([
+                'password' => __('auth.password'),
+            ]);
+        }
+
+        $request->session()->put('auth.password_confirmed_at', time());
+
+        return redirect()->intended(route('dashboard', absolute: false));
+    }
+}
+================================================== 
+D:\laragon\www\inamor\app\Http\Controllers\Auth\EmailVerificationNotificationController.php 
+================================================== 
+<?php
+
+namespace App\Http\Controllers\Auth;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+
+class EmailVerificationNotificationController extends Controller
+{
+    /**
+     * Send a new email verification notification.
+     */
+    public function store(Request $request): RedirectResponse
+    {
+        if ($request->user()->hasVerifiedEmail()) {
+            return redirect()->intended(route('dashboard', absolute: false));
+        }
+
+        $request->user()->sendEmailVerificationNotification();
+
+        return back()->with('status', 'verification-link-sent');
+    }
+}
+================================================== 
+D:\laragon\www\inamor\app\Http\Controllers\Auth\EmailVerificationPromptController.php 
+================================================== 
+<?php
+
+namespace App\Http\Controllers\Auth;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
+class EmailVerificationPromptController extends Controller
+{
+    /**
+     * Display the email verification prompt.
+     */
+    public function __invoke(Request $request): RedirectResponse|View
+    {
+        return $request->user()->hasVerifiedEmail()
+                    ? redirect()->intended(route('dashboard', absolute: false))
+                    : view('auth.verify-email');
+    }
+}
+================================================== 
+D:\laragon\www\inamor\app\Http\Controllers\Auth\NewPasswordController.php 
+================================================== 
+<?php
+
+namespace App\Http\Controllers\Auth;
+
+use App\Http\Controllers\Controller;
+use App\Models\User;
+use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rules;
+use Illuminate\Validation\ValidationException;
+use Illuminate\View\View;
+
+class NewPasswordController extends Controller
+{
+    /**
+     * Display the password reset view.
+     */
+    public function create(Request $request): View
+    {
+        return view('auth.reset-password', ['request' => $request]);
+    }
+
+    /**
+     * Handle an incoming new password request.
+     *
+     * @throws ValidationException
+     */
+    public function store(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'token' => ['required'],
+            'email' => ['required', 'email'],
+            'password' => ['required', 'confirmed', Rules\Password::defaults()],
+        ]);
+
+        // Here we will attempt to reset the user's password. If it is successful we
+        // will update the password on an actual user model and persist it to the
+        // database. Otherwise we will parse the error and return the response.
+        $status = Password::reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function (User $user) use ($request) {
+                $user->forceFill([
+                    'password' => Hash::make($request->password),
+                    'remember_token' => Str::random(60),
+                ])->save();
+
+                event(new PasswordReset($user));
+            }
+        );
+
+        // If the password was successfully reset, we will redirect the user back to
+        // the application's home authenticated view. If there is an error we can
+        // redirect them back to where they came from with their error message.
+        return $status == Password::PASSWORD_RESET
+                    ? redirect()->route('login')->with('status', __($status))
+                    : back()->withInput($request->only('email'))
+                        ->withErrors(['email' => __($status)]);
+    }
+}
+================================================== 
+D:\laragon\www\inamor\app\Http\Controllers\Auth\PasswordController.php 
+================================================== 
+<?php
+
+namespace App\Http\Controllers\Auth;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules\Password;
+
+class PasswordController extends Controller
+{
+    /**
+     * Update the user's password.
+     */
+    public function update(Request $request): RedirectResponse
+    {
+        $validated = $request->validateWithBag('updatePassword', [
+            'current_password' => ['required', 'current_password'],
+            'password' => ['required', Password::defaults(), 'confirmed'],
+        ]);
+
+        $request->user()->update([
+            'password' => Hash::make($validated['password']),
+        ]);
+
+        return back()->with('status', 'password-updated');
+    }
+}
+================================================== 
+D:\laragon\www\inamor\app\Http\Controllers\Auth\PasswordResetLinkController.php 
+================================================== 
+<?php
+
+namespace App\Http\Controllers\Auth;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Validation\ValidationException;
+use Illuminate\View\View;
+
+class PasswordResetLinkController extends Controller
+{
+    /**
+     * Display the password reset link request view.
+     */
+    public function create(): View
+    {
+        return view('auth.forgot-password');
+    }
+
+    /**
+     * Handle an incoming password reset link request.
+     *
+     * @throws ValidationException
+     */
+    public function store(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'email' => ['required', 'email'],
+        ]);
+
+        // We will send the password reset link to this user. Once we have attempted
+        // to send the link, we will examine the response then see the message we
+        // need to show to the user. Finally, we'll send out a proper response.
+        $status = Password::sendResetLink(
+            $request->only('email')
+        );
+
+        return $status == Password::RESET_LINK_SENT
+                    ? back()->with('status', __($status))
+                    : back()->withInput($request->only('email'))
+                        ->withErrors(['email' => __($status)]);
+    }
+}
+================================================== 
+D:\laragon\www\inamor\app\Http\Controllers\Auth\RegisteredUserController.php 
+================================================== 
+<?php
+
+namespace App\Http\Controllers\Auth;
+
+use App\Http\Controllers\Controller;
+use App\Models\User;
+use Illuminate\Auth\Events\Registered;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules;
+use Illuminate\Validation\ValidationException;
+use Illuminate\View\View;
+use Illuminate\Support\Str;
+
+class RegisteredUserController extends Controller
+{
+    /**
+     * Display the registration view.
+     */
+    public function create(Request $request): View
+    {
+        return view('auth.register', [
+            'intent' => $request->query('intent', 'create'),
+        ]);
+    }
+
+    /**
+     * Handle an incoming registration request.
+     *
+     * @throws ValidationException
+     */
+    public function store(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'intent' => [
+                'required',
+                Rule::in(['create', 'join']),
+            ],
+
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+
+            'email' => [
+                'required',
+                'string',
+                'lowercase',
+                'email',
+                'max:255',
+                'unique:' . User::class,
+            ],
+
+            'password' => [
+                'required',
+                'confirmed',
+                Rules\Password::defaults(),
+            ],
+        ]);
+
+       $user = User::create([
+    'name' => $request->name,
+    'email' => $request->email,
+
+    'username' => $this->generateUsername(
+        $request->name
+    ),
+
+    'password' => Hash::make(
+        $request->password
+    ),
+]);
+        event(new Registered($user));
+
+        Auth::login($user);
+
+        // Untuk sementara masih sama seperti Breeze.
+        // Nanti di Step 2 kita ubah flow setelah verifikasi email.
+       return redirect()->route('verification.notice');
+    }
+  private function generateUsername(string $name): string
+{
+    $base = Str::of(trim($name))
+        ->lower()
+        ->ascii()
+        ->replaceMatches('/[^a-z0-9]+/', '')
+        ->value();
+
+    if ($base === '') {
+        $base = 'user';
+    }
+
+    $base = substr($base, 0, 30);
+
+    $username = $base;
+    $i = 1;
+
+    while (
+        User::where('username', $username)->exists()
+    ) {
+        $username = $base . $i;
+        $i++;
+    }
+
+    return $username;
+}
+}================================================== 
+D:\laragon\www\inamor\app\Http\Controllers\Auth\VerifyEmailController.php 
+================================================== 
+<?php
+
+namespace App\Http\Controllers\Auth;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Auth\Events\Verified;
+use Illuminate\Foundation\Auth\EmailVerificationRequest;
+use Illuminate\Http\RedirectResponse;
+
+class VerifyEmailController extends Controller
+{
+    /**
+     * Mark the authenticated user's email address as verified.
+     */
+   public function __invoke(EmailVerificationRequest $request): RedirectResponse
+{
+    
+    if (! $request->user()->hasVerifiedEmail()) {
+        $request->user()->markEmailAsVerified();
+
+        event(new Verified($request->user()));
+    }
+
+    $user = $request->user();
+
+    if (! $user->current_workspace_id) {
+return redirect()->route('onboarding.identity');
+    }
+
+    return redirect()->route('dashboard');
+}
+}
+================================================== 
+D:\laragon\www\inamor\app\Http\Controllers\Knowledge\KnowledgeFeedbackController.php 
+================================================== 
+<?php
+
+namespace App\Http\Controllers\Knowledge;
+
+use App\Http\Controllers\Controller;
+use App\Models\KnowledgeFeedback;
+use App\Services\Workspace\WorkspaceResolver;
+use Illuminate\Contracts\View\View;
+use Illuminate\Http\Request;
+
+class KnowledgeFeedbackController extends Controller
+{
+    public function __construct(
+        private readonly WorkspaceResolver $workspaceResolver,
+    ) {
+    }
+public function show(
+    Request $request,
+    KnowledgeFeedback $feedback
+): View {
+    $workspaceId = $this->workspaceResolver->resolveId(
+        $request->user()
+    );
+
+    abort_if(
+        $feedback->workspace_id !== $workspaceId,
+        403
+    );
+
+    return view('knowledge.feedback.show', [
+        'feedback' => $feedback,
+    ]);
+}
+    public function index(Request $request): View
+    {
+        $workspaceId = $this->workspaceResolver->resolveId(
+            $request->user()
+        );
+
+        $feedbacks = KnowledgeFeedback::query()
+            ->where('workspace_id', $workspaceId)
+            ->orderByDesc('asked_count')
+            ->latest()
+            ->paginate(15);
+
+        return view('knowledge.feedback.index', [
+            'feedbacks' => $feedbacks,
+        ]);
+    }
+}================================================== 
+D:\laragon\www\inamor\app\Http\Controllers\Knowledge\ManualKnowledgeController.php 
+================================================== 
+<?php
+
+namespace App\Http\Controllers\Knowledge;
+
+use App\Http\Controllers\Controller;
+use App\Models\KnowledgeFeedback;
+use App\Models\ManualKnowledge;
+use App\Services\Knowledge\ManualKnowledgeService;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
+class ManualKnowledgeController extends Controller
+{
+    public function __construct(
+        protected ManualKnowledgeService $manualKnowledgeService,
+    ) {
+    }
+
+    /**
+     * List Manual Knowledge
+     */
+    public function index(Request $request): View
+    {
+        $knowledges = $this->manualKnowledgeService
+            ->getWorkspaceKnowledge(
+                $request->user()
+            );
+
+        return view('knowledge.manual.index', [
+            'knowledges' => $knowledges,
+        ]);
+    }
+
+    /**
+     * Create Manual Knowledge from Feedback
+     */
+    public function create(
+        Request $request,
+        KnowledgeFeedback $feedback,
+    ): View {
+
+        return view('knowledge.manual.create', [
+            'feedback' => $feedback,
+        ]);
+    }
+
+    /**
+     * Store Manual Knowledge
+     */
+    public function store(
+        Request $request,
+        KnowledgeFeedback $feedback,
+    ): RedirectResponse {
+
+        $validated = $request->validate([
+            'title' => ['required', 'string', 'max:255'],
+            'content' => ['required', 'string'],
+        ]);
+
+        $this->manualKnowledgeService->create(
+            user: $request->user(),
+            title: $validated['title'],
+            content: $validated['content'],
+            feedback: $feedback,
+        );
+
+        return redirect()
+            ->route('knowledge.manual.index')
+            ->with(
+                'success',
+                'Manual knowledge berhasil ditambahkan.'
+            );
+    }
+
+    /**
+     * Show Manual Knowledge
+     */
+    public function show(
+        Request $request,
+        ManualKnowledge $knowledge,
+    ): View {
+
+        return view('knowledge.manual.show', [
+            'knowledge' => $knowledge,
+        ]);
+    }
+
+    /**
+     * Edit Manual Knowledge
+     */
+    public function edit(
+        Request $request,
+        ManualKnowledge $knowledge,
+    ): View {
+
+        return view('knowledge.manual.edit', [
+            'knowledge' => $knowledge,
+        ]);
+    }
+
+    /**
+     * Update Manual Knowledge
+     */
+    public function update(
+        Request $request,
+        ManualKnowledge $knowledge,
+    ): RedirectResponse {
+
+        $validated = $request->validate([
+            'title' => ['required', 'string', 'max:255'],
+            'content' => ['required', 'string'],
+            'status' => ['required', 'in:draft,published'],
+        ]);
+
+        $this->manualKnowledgeService->update(
+            $knowledge,
+            $validated
+        );
+
+        return redirect()
+            ->route('knowledge.manual.index')
+            ->with(
+                'success',
+                'Manual knowledge berhasil diperbarui.'
+            );
+    }
+
+    /**
+     * Delete Manual Knowledge
+     */
+    public function destroy(
+        ManualKnowledge $knowledge,
+    ): RedirectResponse {
+
+        $this->manualKnowledgeService->delete(
+            $knowledge
+        );
+
+        return redirect()
+            ->route('knowledge.manual.index')
+            ->with(
+                'success',
+                'Manual knowledge berhasil dihapus.'
+            );
+    }
+    public function createManual(): View
+{
+    return view('knowledge.manual.create');
+}
+
+public function storeManual(
+    Request $request,
+): RedirectResponse {
+
+    $validated = $request->validate([
+        'title' => ['required', 'string', 'max:255'],
+        'content' => ['required', 'string'],
+    ]);
+
+    $this->manualKnowledgeService->create(
+        user: $request->user(),
+        title: $validated['title'],
+        content: $validated['content'],
+    );
+
+    return redirect()
+        ->route('knowledge.manual.index')
+        ->with(
+            'success',
+            'Manual knowledge berhasil ditambahkan.'
+        );
+}
+}================================================== 
+D:\laragon\www\inamor\app\Http\Controllers\Workspace\WorkspaceInvitationController.php 
+================================================== 
+<?php
+
+namespace App\Http\Controllers\Workspace;
+
+use App\Http\Controllers\Controller;
+use App\Services\WorkspaceInvitationService;
+use App\Services\WorkspaceMemberService;
+use App\Services\WorkspaceService;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
+class WorkspaceInvitationController extends Controller
+{
+    public function __construct(
+        protected WorkspaceInvitationService $invitationService,
+        protected WorkspaceMemberService $workspaceMemberService,
+        protected WorkspaceService $workspaceService,
+    ) {
+    }
+
+    /**
+     * Display invitation page.
+     */
+public function show(Request $request): View
+{
+    $workspace = $this->workspaceService
+        ->resolveActive($request->user());
+
+    $invitation = $workspace->invitation;
+
+    if (! $invitation) {
+
+        $invitation = $this->invitationService->create(
+            $workspace,
+            $request->user()
+        );
+    }
+
+    return view('workspaces.invitation.show', [
+        'workspace' => $workspace,
+        'invitation' => $invitation,
+    ]);
+}
+
+    /**
+     * Regenerate invitation token.
+     */
+    public function regenerate(
+        Request $request
+    ): RedirectResponse {
+
+        $workspace = $this->workspaceService
+            ->resolveActive($request->user());
+
+        $invitation = $workspace->invitation;
+
+        abort_if(
+            ! $invitation,
+            404,
+            'Invitation not found.'
+        );
+
+        $this->invitationService
+            ->regenerate($invitation);
+
+        return back()->with(
+            'status',
+            'Invitation link regenerated successfully.'
+        );
+    }
+
+    /**
+     * Accept invitation.
+     */
+    public function accept(
+        Request $request,
+        string $token
+    ): RedirectResponse {
+
+        /*
+        |--------------------------------------------------------------------------
+        | Login Required
+        |--------------------------------------------------------------------------
+        */
+
+        if (! auth()->check()) {
+
+            $request->session()->put(
+                'workspace_invitation_token',
+                $token
+            );
+
+            return redirect()->route('login');
+        }
+
+        $invitation = $this->invitationService
+            ->findByToken($token);
+
+        abort_if(
+            ! $invitation,
+            404,
+            'Invitation not found.'
+        );
+
+        abort_if(
+            $this->invitationService->isExpired($invitation),
+            410,
+            'Invitation has expired.'
+        );
+
+        $this->invitationService->touch($invitation);
+
+        $workspace = $invitation->workspace;
+
+        /*
+        |--------------------------------------------------------------------------
+        | Public Workspace
+        |--------------------------------------------------------------------------
+        */
+
+        if ($workspace->visibility === 'public') {
+
+            if (
+                $this->workspaceMemberService->isMember(
+                    $workspace,
+                    $request->user()
+                )
+            ) {
+                $request->user()->update([
+                    'current_workspace_id' => $workspace->id,
+                ]);
+
+                $request->session()->forget(
+                    'workspace_invitation_token'
+                );
+
+                return redirect()->route('dashboard');
+            }
+
+            $this->workspaceMemberService->join(
+                $workspace,
+                $request->user()
+            );
+
+            $request->user()->update([
+                'current_workspace_id' => $workspace->id,
+            ]);
+
+            $request->session()->forget(
+                'workspace_invitation_token'
+            );
+
+            return redirect()->route('dashboard');
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Private Workspace
+        |--------------------------------------------------------------------------
+        */
+
+        $request->session()->forget(
+            'workspace_invitation_token'
+        );
+
+        return redirect()->route(
+            'workspace.join-request.create',
+            $workspace
+        );
+    }
+}================================================== 
+D:\laragon\www\inamor\app\Http\Controllers\Workspace\WorkspaceJoinRequestController.php 
+================================================== 
+<?php
+
+namespace App\Http\Controllers\Workspace;
+
+use App\Http\Controllers\Controller;
+use App\Models\Workspace;
+use App\Models\WorkspaceJoinRequest;
+use App\Services\WorkspaceJoinRequestService;
+use App\Services\WorkspaceMemberService;
+use App\Services\WorkspaceService;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
+class WorkspaceJoinRequestController extends Controller
+{
+    public function __construct(
+        protected WorkspaceJoinRequestService $joinRequestService,
+        protected WorkspaceMemberService $memberService,
+        protected WorkspaceService $workspaceService,
+    ) {
+    }
+
+    /**
+     * Join request page.
+     */
+    public function create(
+        Workspace $workspace,
+    ): View {
+
+        return view(
+            'workspaces.join-request.create',
+            [
+                'workspace' => $workspace,
+            ]
+        );
+    }
+
+    /**
+     * Submit join request.
+     */
+    public function store(
+        Request $request,
+        Workspace $workspace,
+    ): RedirectResponse {
+
+        $validated = $request->validate([
+
+            'full_name' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+
+            'email' => [
+                'required',
+                'email',
+            ],
+
+            'identity_card' => [
+                'required',
+                'image',
+                'max:5120',
+            ],
+
+            'selfie_with_identity_card' => [
+                'required',
+                'image',
+                'max:5120',
+            ],
+
+        ]);
+
+        $validated['identity_card_path'] =
+            $request->file('identity_card')
+                ->store('join-requests/identity', 'public');
+
+        $validated['selfie_with_identity_card_path'] =
+            $request->file('selfie_with_identity_card')
+                ->store('join-requests/selfie', 'public');
+
+        $this->joinRequestService->submit(
+            $workspace,
+            $request->user(),
+            $validated,
+        );
+
+        return redirect()->route(
+            'workspace.join-request.pending'
+        );
+    }
+
+    /**
+     * Pending page.
+     */
+    public function pending(): View
+    {
+        return view(
+            'workspaces.join-request.pending'
+        );
+    }
+
+    /**
+     * Admin list.
+     */
+    public function index(
+        Request $request,
+    ): View {
+
+        $workspace = $this->workspaceService
+            ->resolveActive(
+                $request->user()
+            );
+
+      $joinRequests = $workspace
+    ->joinRequests()
+    ->latest()
+    ->paginate(15);
+
+return view(
+    'workspaces.join-request.index',
+    compact(
+        'workspace',
+        'joinRequests'
+    )
+);
+    }
+
+    /**
+     * Approve request.
+     */
+    public function approve(
+        Request $request,
+        WorkspaceJoinRequest $joinRequest,
+    ): RedirectResponse {
+
+        $this->memberService->join(
+            $joinRequest->workspace,
+            $joinRequest->user,
+        );
+
+        $this->joinRequestService->approve(
+            $joinRequest,
+            $request->user(),
+        );
+
+        return back()->with(
+            'status',
+            'Join request approved.'
+        );
+    }
+
+    /**
+     * Reject request.
+     */
+    public function reject(
+        Request $request,
+        WorkspaceJoinRequest $joinRequest,
+    ): RedirectResponse {
+
+        $validated = $request->validate([
+            'reason' => [
+                'required',
+                'string',
+                'max:500',
+            ],
+        ]);
+
+        $this->joinRequestService->reject(
+            $joinRequest,
+            $request->user(),
+            $validated['reason'],
+        );
+
+        return back()->with(
+            'status',
+            'Join request rejected.'
+        );
+    }
+    /**
+ * Archive request.
+ */
+public function archive(
+    WorkspaceJoinRequest $joinRequest,
+): RedirectResponse {
+
+    $this->joinRequestService->archive(
+        $joinRequest,
+    );
+
+    return back()->with(
+        'status',
+        'Join request archived successfully.',
+    );
+}
+/**
+ * Archived requests.
+ */
+public function archived(
+    Request $request,
+): View {
+
+    $workspace = $this->workspaceService
+        ->resolveActive(
+            $request->user(),
+        );
+
+    $joinRequests = $this->joinRequestService
+        ->paginateArchived(
+            $workspace->id,
+        );
+
+    return view(
+        'workspaces.join-request.archived',
+        compact(
+            'workspace',
+            'joinRequests',
+        ),
+    );
+}
+
+public function restore(
+    int $id,
+): RedirectResponse {
+
+    $this->joinRequestService->restore($id);
+
+    return back()->with(
+        'status',
+        'Join request restored.',
+    );
+}
+}================================================== 
+D:\laragon\www\inamor\app\Http\Controllers\Workspace\WorkspaceMemberController.php 
+================================================== 
+<?php
+
+namespace App\Http\Controllers\Workspace;
+
+use App\Http\Controllers\Controller;
+use App\Services\WorkspaceMemberService;
+use Illuminate\Http\Request;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\View\View;
+
+class WorkspaceMemberController extends Controller
+{
+    public function __construct(
+        protected WorkspaceMemberService $workspaceMemberService,
+    ) {
+    }
+
+    /**
+     * Display workspace members.
+     */
+    public function index(Request $request): View
+    {
+        $members = $this->workspaceMemberService
+            ->paginate(
+                $request->user(),
+            );
+
+        return view(
+            'workspaces.members.index',
+            compact('members'),
+        );
+    }
+
+    /**
+     * Update member role.
+     */
+    public function updateRole(
+        Request $request,
+        int $member,
+    ): RedirectResponse {
+
+        $request->validate([
+            'role' => [
+                'required',
+                'in:owner,admin,member,viewer',
+            ],
+        ]);
+
+        $this->workspaceMemberService->updateRole(
+            $request->user(),
+            $member,
+            $request->role,
+        );
+
+        return back()->with(
+            'status',
+            'Member role updated successfully.',
+        );
+    }
+
+    /**
+     * Remove member.
+     */
+    public function destroy(
+        Request $request,
+        int $member,
+    ): RedirectResponse {
+
+        $this->workspaceMemberService->remove(
+            $request->user(),
+            $member,
+        );
+
+        return back()->with(
+            'status',
+            'Member removed successfully.',
+        );
+    }
+}================================================== 
+D:\laragon\www\inamor\app\Http\Controllers\Workspace\WorkspaceRoleController.php 
+================================================== 
+<?php
+
+namespace App\Http\Controllers\Workspace;
+
+use App\Http\Controllers\Controller;
+use Illuminate\View\View;
+
+class WorkspaceRoleController extends Controller
+{
+    public function index(): View
+    {
+        $roles = [
+
+            [
+                'name' => 'Owner',
+                'description' => 'Full access to the workspace.',
+            ],
+
+            [
+                'name' => 'Administrator',
+                'description' => 'Can manage members, documents, calendar, and settings.',
+            ],
+
+            [
+                'name' => 'Member',
+                'description' => 'Can access workspace content.',
+            ],
+
+            [
+                'name' => 'Viewer',
+                'description' => 'Read only access.',
+            ],
+
+        ];
+
+        return view(
+            'workspaces.roles.index',
+            compact('roles'),
+        );
+    }
+}

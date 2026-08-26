@@ -24,18 +24,28 @@ class WorkspaceJoinRequestService
     ): WorkspaceJoinRequest {
 
         return $this->repository->create([
-            'workspace_id' => $workspace->id,
-            'user_id' => $user->id,
+            'workspace_id' =>
+                $workspace->id,
 
-            'full_name' => $data['full_name'],
-            'email' => $data['email'],
+            'user_id' =>
+                $user->id,
 
-            'identity_card_path' => $data['identity_card_path'],
-            'selfie_with_identity_card_path' => $data['selfie_with_identity_card_path'],
+            'full_name' =>
+                $data['full_name'],
 
-            'status' => 'pending',
+            'identity_card_path' =>
+                $data['identity_card_path'],
+
+            'selfie_with_identity_card_path' =>
+                $data[
+                    'selfie_with_identity_card_path'
+                ],
+
+            'status' =>
+                'pending',
         ]);
     }
+
 
     /**
      * Approve join request.
@@ -48,13 +58,21 @@ class WorkspaceJoinRequestService
         return $this->repository->update(
             $joinRequest,
             [
-                'status' => 'approved',
-                'reviewed_by' => $reviewer->id,
-                'reviewed_at' => now(),
-                'rejection_reason' => null,
-            ]
+                'status' =>
+                    'approved',
+
+                'reviewed_by' =>
+                    $reviewer->id,
+
+                'reviewed_at' =>
+                    now(),
+
+                'rejection_reason' =>
+                    null,
+            ],
         );
     }
+
 
     /**
      * Reject join request.
@@ -68,43 +86,57 @@ class WorkspaceJoinRequestService
         return $this->repository->update(
             $joinRequest,
             [
-                'status' => 'rejected',
-                'reviewed_by' => $reviewer->id,
-                'reviewed_at' => now(),
-                'rejection_reason' => $reason,
-            ]
+                'status' =>
+                    'rejected',
+
+                'reviewed_by' =>
+                    $reviewer->id,
+
+                'reviewed_at' =>
+                    now(),
+
+                'rejection_reason' =>
+                    $reason,
+            ],
         );
     }
+
+
+    /**
+     * Paginate archived join requests.
+     */
     public function paginateArchived(
-    int $workspaceId,
-)
-{
-    return $this->repository
-        ->paginateArchived(
-            $workspaceId,
+        int $workspaceId,
+    ) {
+        return $this->repository
+            ->paginateArchived(
+                $workspaceId,
+            );
+    }
+
+
+    /**
+     * Archive join request.
+     */
+    public function archive(
+        WorkspaceJoinRequest $joinRequest,
+    ): void {
+
+        $this->repository->delete(
+            $joinRequest,
         );
-}
-/**
- * Archive join request.
- */
-public function archive(
-    WorkspaceJoinRequest $joinRequest,
-): void {
+    }
 
-    $this->repository->delete(
-        $joinRequest,
-    );
-}
 
-/**
- * Restore archived join request.
- */
-public function restore(
-    int $id,
-): bool {
+    /**
+     * Restore archived join request.
+     */
+    public function restore(
+        int $id,
+    ): bool {
 
-    return $this->repository->restore(
-        $id,
-    );
-}
+        return $this->repository->restore(
+            $id,
+        );
+    }
 }

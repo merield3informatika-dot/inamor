@@ -12,6 +12,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Models\Notification;
+use Laravel\Sanctum\HasApiTokens;
 
 
 #[Fillable(['name',
@@ -32,11 +33,13 @@ use App\Models\Notification;
 
 'location',
 
+'google_id',
+
 'current_workspace_id',])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements MustVerifyEmail
 {
-    use HasFactory, Notifiable;
+   use HasApiTokens, HasFactory, Notifiable;
 
     public function ownedWorkspaces(): HasMany
     {

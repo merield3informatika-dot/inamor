@@ -1,0 +1,1407 @@
+================================================== 
+D:\laragon\www\inamor\database\migrations\0001_01_01_000000_create_users_table.php 
+================================================== 
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('users', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('email')->unique();
+            $table->timestamp('email_verified_at')->nullable();
+            $table->string('password');
+            $table->rememberToken();
+            $table->timestamps();
+        });
+
+        Schema::create('password_reset_tokens', function (Blueprint $table) {
+            $table->string('email')->primary();
+            $table->string('token');
+            $table->timestamp('created_at')->nullable();
+        });
+
+        Schema::create('sessions', function (Blueprint $table) {
+            $table->string('id')->primary();
+            $table->foreignId('user_id')->nullable()->index();
+            $table->string('ip_address', 45)->nullable();
+            $table->text('user_agent')->nullable();
+            $table->longText('payload');
+            $table->integer('last_activity')->index();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('users');
+        Schema::dropIfExists('password_reset_tokens');
+        Schema::dropIfExists('sessions');
+    }
+};
+================================================== 
+D:\laragon\www\inamor\database\migrations\0001_01_01_000001_create_cache_table.php 
+================================================== 
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('cache', function (Blueprint $table) {
+            $table->string('key')->primary();
+            $table->mediumText('value');
+            $table->bigInteger('expiration')->index();
+        });
+
+        Schema::create('cache_locks', function (Blueprint $table) {
+            $table->string('key')->primary();
+            $table->string('owner');
+            $table->bigInteger('expiration')->index();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('cache');
+        Schema::dropIfExists('cache_locks');
+    }
+};
+================================================== 
+D:\laragon\www\inamor\database\migrations\0001_01_01_000002_create_jobs_table.php 
+================================================== 
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('jobs', function (Blueprint $table) {
+            $table->id();
+            $table->string('queue')->index();
+            $table->longText('payload');
+            $table->unsignedSmallInteger('attempts');
+            $table->unsignedInteger('reserved_at')->nullable();
+            $table->unsignedInteger('available_at');
+            $table->unsignedInteger('created_at');
+        });
+
+        Schema::create('job_batches', function (Blueprint $table) {
+            $table->string('id')->primary();
+            $table->string('name');
+            $table->integer('total_jobs');
+            $table->integer('pending_jobs');
+            $table->integer('failed_jobs');
+            $table->longText('failed_job_ids');
+            $table->mediumText('options')->nullable();
+            $table->integer('cancelled_at')->nullable();
+            $table->integer('created_at');
+            $table->integer('finished_at')->nullable();
+        });
+
+        Schema::create('failed_jobs', function (Blueprint $table) {
+            $table->id();
+            $table->string('uuid')->unique();
+            $table->string('connection');
+            $table->string('queue');
+            $table->longText('payload');
+            $table->longText('exception');
+            $table->timestamp('failed_at')->useCurrent();
+
+            $table->index(['connection', 'queue', 'failed_at']);
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('jobs');
+        Schema::dropIfExists('job_batches');
+        Schema::dropIfExists('failed_jobs');
+    }
+};
+================================================== 
+D:\laragon\www\inamor\database\migrations\2026_07_25_144710_create_workspaces_table.php 
+================================================== 
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('workspaces', function (Blueprint $table) {
+            $table->id();
+
+            $table->uuid('uuid')->unique();
+
+            $table->foreignId('owner_id')
+                ->constrained('users')
+                ->cascadeOnDelete();
+
+            $table->string('name');
+            $table->string('slug')->unique();
+
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('workspaces');
+    }
+};================================================== 
+D:\laragon\www\inamor\database\migrations\2026_07_25_144711_create_workspace_members_table.php 
+================================================== 
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('workspace_members', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('workspace_id')
+                ->constrained()
+                ->cascadeOnDelete();
+
+            $table->foreignId('user_id')
+                ->constrained()
+                ->cascadeOnDelete();
+
+            $table->enum('role', [
+                'admin',
+                'member',
+            ])->default('member');
+
+            $table->timestamps();
+
+            $table->unique([
+                'workspace_id',
+                'user_id',
+            ]);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('workspace_members');
+    }
+};================================================== 
+D:\laragon\www\inamor\database\migrations\2026_07_25_150619_create_documents_table.php 
+================================================== 
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('documents', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('workspace_id')
+                ->constrained()
+                ->cascadeOnDelete();
+
+            $table->foreignId('uploaded_by')
+                ->constrained('users')
+                ->cascadeOnDelete();
+
+            $table->string('title');
+
+            $table->string('file_name');
+
+            $table->string('file_path');
+
+            $table->string('mime_type');
+
+            $table->unsignedBigInteger('file_size');
+
+            $table->enum('status', [
+                'pending',
+                'processing',
+                'ready',
+                'failed',
+            ])->default('pending');
+
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('documents');
+    }
+};================================================== 
+D:\laragon\www\inamor\database\migrations\2026_07_25_153446_create_document_contents_table.php 
+================================================== 
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('document_contents', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('document_id')
+                ->constrained()
+                ->cascadeOnDelete();
+
+            $table->longText('raw_text');
+
+            $table->unsignedInteger('page_count')->default(0);
+
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('document_contents');
+    }
+};================================================== 
+D:\laragon\www\inamor\database\migrations\2026_07_27_044744_create_knowledge_feedback_table.php 
+================================================== 
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('knowledge_feedbacks', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('workspace_id')
+                ->constrained()
+                ->cascadeOnDelete();
+
+            $table->text('question');
+
+            $table->string('normalized_question')->nullable();
+
+            $table->unsignedInteger('asked_count')->default(1);
+
+            $table->enum('status', [
+                'pending',
+                'resolved',
+            ])->default('pending');
+
+            $table->timestamps();
+
+            $table->index('workspace_id');
+            $table->index('normalized_question');
+            $table->index('status');
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('knowledge_feedbacks');
+    }
+};================================================== 
+D:\laragon\www\inamor\database\migrations\2026_07_27_052854_create_manual_knowledges_table.php 
+================================================== 
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('manual_knowledges', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('workspace_id')
+                ->constrained()
+                ->cascadeOnDelete();
+
+            $table->foreignId('created_by')
+                ->constrained('users')
+                ->cascadeOnDelete();
+
+            $table->string('title');
+
+            $table->longText('content');
+
+            $table->enum('status', [
+                'draft',
+                'published',
+            ])->default('published');
+
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('manual_knowledges');
+    }
+};================================================== 
+D:\laragon\www\inamor\database\migrations\2026_07_27_074520_create_calendar_events_table.php 
+================================================== 
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('calendar_events', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('workspace_id')
+                ->constrained('workspaces')
+                ->cascadeOnDelete();
+
+            $table->foreignId('created_by')
+                ->constrained('users')
+                ->cascadeOnDelete();
+
+            $table->string('title');
+            $table->text('description')->nullable();
+            $table->string('category');
+
+            $table->dateTime('start_at');
+            $table->dateTime('end_at')->nullable();
+
+            $table->string('location')->nullable();
+            $table->string('color')->nullable();
+
+            $table->timestamps();
+
+            $table->index(['workspace_id', 'start_at']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('calendar_events');
+    }
+};================================================== 
+D:\laragon\www\inamor\database\migrations\2026_07_27_232703_create_workspace_activities_table.php 
+================================================== 
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('workspace_activities', function (Blueprint $table) {
+            $table->id();
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('workspace_activities');
+    }
+};
+================================================== 
+D:\laragon\www\inamor\database\migrations\2026_07_28_015508_add_current_workspace_id_to_users_table.php 
+================================================== 
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table->foreignId('current_workspace_id')
+                ->nullable()
+                ->after('remember_token')
+                ->constrained('workspaces')
+                ->nullOnDelete();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropConstrainedForeignId('current_workspace_id');
+        });
+    }
+};================================================== 
+D:\laragon\www\inamor\database\migrations\2026_08_01_053431_add_profile_fields_to_workspaces_table.php 
+================================================== 
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('workspaces', function (Blueprint $table) {
+            $table->string('logo')->nullable()->after('name');
+            $table->text('description')->nullable()->after('logo');
+            $table->enum('visibility', ['public', 'private'])
+                ->default('private')
+                ->after('description');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('workspaces', function (Blueprint $table) {
+            $table->dropColumn(['logo', 'description', 'visibility']);
+        });
+    }
+};================================================== 
+D:\laragon\www\inamor\database\migrations\2026_08_01_075402_add_soft_deletes_to_workspaces_table.php 
+================================================== 
+<?php
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('workspaces', function (Blueprint $table) {
+            $table->softDeletes();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('workspaces', function (Blueprint $table) {
+            $table->dropSoftDeletes();
+        });
+    }
+};================================================== 
+D:\laragon\www\inamor\database\migrations\2026_08_01_081318_create_workspace_join_requests_table.php 
+================================================== 
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('workspace_join_requests', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('workspace_id')
+                ->constrained()
+                ->cascadeOnDelete();
+
+            $table->foreignId('user_id')
+                ->nullable()
+                ->constrained()
+                ->nullOnDelete();
+
+            $table->string('full_name');
+            $table->string('email');
+
+            $table->string('identity_card_path');
+
+            $table->string('selfie_with_identity_card_path');
+
+            $table->enum('status', [
+                'pending',
+                'approved',
+                'rejected',
+            ])->default('pending');
+
+            $table->foreignId('reviewed_by')
+                ->nullable()
+                ->constrained('users')
+                ->nullOnDelete();
+
+            $table->timestamp('reviewed_at')
+                ->nullable();
+
+            $table->text('rejection_reason')
+                ->nullable();
+
+            $table->timestamps();
+
+            $table->index([
+                'workspace_id',
+                'status',
+            ]);
+
+            $table->index('email');
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('workspace_join_requests');
+    }
+};================================================== 
+D:\laragon\www\inamor\database\migrations\2026_08_01_090907_create_workspace_invitations_table.php 
+================================================== 
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('workspace_invitations', function (Blueprint $table) {
+
+            $table->id();
+
+            $table->foreignId('workspace_id')
+                ->constrained()
+                ->cascadeOnDelete();
+
+            // Satu workspace hanya boleh memiliki satu invitation
+            $table->unique('workspace_id');
+
+            $table->foreignId('created_by')
+                ->constrained('users')
+                ->cascadeOnDelete();
+
+            $table->string('token')
+                ->unique();
+
+            $table->enum('status', [
+                'active',
+                'inactive',
+            ])->default('active');
+
+            $table->timestamp('expires_at')
+                ->nullable();
+
+            $table->timestamp('last_used_at')
+                ->nullable();
+
+            $table->unsignedInteger('usage_count')
+                ->default(0);
+
+            $table->timestamps();
+
+            $table->index([
+                'status',
+                'expires_at',
+            ]);
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('workspace_invitations');
+    }
+};================================================== 
+D:\laragon\www\inamor\database\migrations\2026_08_03_055938_add_deleted_at_to_workspace_join_requests_table.php 
+================================================== 
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('workspace_join_requests', function (Blueprint $table) {
+            $table->softDeletes();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('workspace_join_requests', function (Blueprint $table) {
+            $table->dropSoftDeletes();
+        });
+    }
+};================================================== 
+D:\laragon\www\inamor\database\migrations\2026_08_03_071940_add_profile_fields_to_users_table.php 
+================================================== 
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+
+            $table->string('username')
+                ->nullable()
+                ->unique()
+                ->after('name');
+
+            $table->string('avatar')
+                ->nullable()
+                ->after('password');
+
+            $table->text('bio')
+                ->nullable()
+                ->after('avatar');
+
+            $table->string('phone')
+                ->nullable()
+                ->after('bio');
+
+            $table->string('job_title')
+                ->nullable()
+                ->after('phone');
+
+            $table->string('department')
+                ->nullable()
+                ->after('job_title');
+
+            $table->string('location')
+                ->nullable()
+                ->after('department');
+
+            $table->timestamp('last_seen_at')
+                ->nullable()
+                ->after('location');
+
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+
+            $table->dropColumn([
+                'username',
+                'avatar',
+                'bio',
+                'phone',
+                'job_title',
+                'department',
+                'location',
+                'last_seen_at',
+            ]);
+
+        });
+    }
+};================================================== 
+D:\laragon\www\inamor\database\migrations\2026_08_05_075701_create_knowledge_memories_table.php 
+================================================== 
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('knowledge_memories', function (Blueprint $table) {
+
+            $table->id();
+
+            /*
+            |--------------------------------------------------------------------------
+            | Workspace
+            |--------------------------------------------------------------------------
+            */
+
+            $table->foreignId('workspace_id')
+                ->constrained()
+                ->cascadeOnDelete();
+
+            /*
+            |--------------------------------------------------------------------------
+            | Knowledge Source
+            |--------------------------------------------------------------------------
+            |
+            | document
+            | manual
+            | calendar
+            | announcement
+            |
+            */
+
+            $table->string('source_type');
+
+            $table->unsignedBigInteger('source_id');
+
+            /*
+            |--------------------------------------------------------------------------
+            | Knowledge
+            |--------------------------------------------------------------------------
+            */
+
+            $table->string('title');
+
+            $table->longText('knowledge');
+
+            $table->unsignedInteger('page_number')
+                ->nullable();
+
+            /*
+            |--------------------------------------------------------------------------
+            | AI Metadata
+            |--------------------------------------------------------------------------
+            */
+
+            $table->decimal('confidence', 5, 2)
+                ->nullable();
+
+            $table->enum('status', [
+                'active',
+                'outdated',
+                'archived',
+            ])->default('active');
+
+            $table->timestamps();
+
+            /*
+            |--------------------------------------------------------------------------
+            | Index
+            |--------------------------------------------------------------------------
+            */
+
+            $table->index([
+                'workspace_id',
+                'source_type',
+                'source_id',
+            ]);
+
+            $table->fullText([
+                'title',
+                'knowledge',
+            ]);
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('knowledge_memories');
+    }
+};================================================== 
+D:\laragon\www\inamor\database\migrations\2026_08_05_075705_create_knowledge_memory_aliases_table.php 
+================================================== 
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('knowledge_memory_aliases', function (Blueprint $table) {
+
+            $table->id();
+
+            $table->foreignId('knowledge_memory_id')
+                ->constrained()
+                ->cascadeOnDelete();
+
+            $table->string('alias');
+
+            $table->timestamps();
+
+            $table->index('alias');
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('knowledge_memory_aliases');
+    }
+};================================================== 
+D:\laragon\www\inamor\database\migrations\2026_08_05_140021_create_ai_requests_table.php 
+================================================== 
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('ai_requests', function (Blueprint $table) {
+
+            $table->id();
+
+            $table->foreignId('workspace_id')
+                ->nullable()
+                ->constrained()
+                ->nullOnDelete();
+
+            $table->foreignId('user_id')
+                ->nullable()
+                ->constrained()
+                ->nullOnDelete();
+
+            /*
+            |--------------------------------------------------------------------------
+            | AI Provider
+            |--------------------------------------------------------------------------
+            */
+
+            $table->string('provider', 50);
+            // gemini
+            // groq
+            // openrouter
+            // openai
+            // claude
+            // internal
+
+            $table->string('model', 100);
+            // gemini-2.5-flash
+            // llama-3.3-70b
+            // deepseek-v3
+            // claude-sonnet-4
+
+            /*
+            |--------------------------------------------------------------------------
+            | Engine
+            |--------------------------------------------------------------------------
+            */
+
+            $table->string('engine', 50);
+            // knowledge_memory
+            // manual_knowledge
+            // gemini
+            // groq
+            // openrouter
+            // llm
+            // fallback
+
+            /*
+            |--------------------------------------------------------------------------
+            | Request
+            |--------------------------------------------------------------------------
+            */
+
+            $table->text('question');
+
+            /*
+            |--------------------------------------------------------------------------
+            | Status
+            |--------------------------------------------------------------------------
+            */
+
+            $table->string('status', 30);
+            // success
+            // failed
+            // timeout
+            // quota
+            // not_found
+            // cached
+            // fallback
+
+            /*
+            |--------------------------------------------------------------------------
+            | Performance
+            |--------------------------------------------------------------------------
+            */
+
+            $table->unsignedInteger('latency')
+                ->nullable()
+                ->comment('Milliseconds');
+
+            /*
+            |--------------------------------------------------------------------------
+            | Error
+            |--------------------------------------------------------------------------
+            */
+
+            $table->text('error_message')
+                ->nullable();
+
+            $table->timestamps();
+
+            /*
+            |--------------------------------------------------------------------------
+            | Indexes
+            |--------------------------------------------------------------------------
+            */
+
+            $table->index('workspace_id');
+            $table->index('user_id');
+            $table->index('provider');
+            $table->index('model');
+            $table->index('engine');
+            $table->index('status');
+            $table->index('created_at');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('ai_requests');
+    }
+};================================================== 
+D:\laragon\www\inamor\database\migrations\2026_08_06_061601_alter_ai_requests_columns.php 
+================================================== 
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        DB::statement("
+            ALTER TABLE ai_requests
+            MODIFY engine VARCHAR(50) NOT NULL
+        ");
+
+        DB::statement("
+            ALTER TABLE ai_requests
+            MODIFY status VARCHAR(30) NOT NULL
+        ");
+    }
+
+    public function down(): void
+    {
+        DB::statement("
+            ALTER TABLE ai_requests
+            MODIFY engine ENUM(
+                'knowledge_memory',
+                'manual_knowledge',
+                'gemini'
+            ) NOT NULL
+        ");
+
+        DB::statement("
+            ALTER TABLE ai_requests
+            MODIFY status ENUM(
+                'success',
+                'quota',
+                'timeout',
+                'failed'
+            ) NOT NULL
+        ");
+    }
+};================================================== 
+D:\laragon\www\inamor\database\migrations\2026_08_06_070225_create_ai_caches_table.php 
+================================================== 
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('ai_caches', function (Blueprint $table) {
+
+            $table->id();
+
+            $table->foreignId('workspace_id')
+                ->constrained()
+                ->cascadeOnDelete();
+
+            $table->string('question_hash', 32);
+
+            $table->text('normalized_question');
+
+            $table->longText('answer');
+
+            $table->json('sources')->nullable();
+
+            $table->decimal('confidence', 5, 2)->nullable();
+
+            $table->string('provider');
+
+            $table->string('model');
+
+            $table->timestamp('expires_at')->nullable();
+
+            $table->unsignedInteger('hit_count')->default(0);
+
+            $table->timestamp('last_hit_at')->nullable();
+
+            $table->timestamps();
+
+            $table->index('workspace_id');
+
+            $table->index('question_hash');
+
+            $table->index('expires_at');
+
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('ai_caches');
+    }
+};================================================== 
+D:\laragon\www\inamor\database\migrations\2026_08_08_051038_add_extraction_columns_to_document_contents_table.php 
+================================================== 
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('document_contents', function (Blueprint $table) {
+
+            $table->string('extraction_method')->nullable()->after('page_count');
+
+            $table->boolean('ocr_used')->default(false)->after('extraction_method');
+
+            $table->decimal('confidence', 5, 2)->nullable()->after('ocr_used');
+
+            $table->json('metadata')->nullable()->after('confidence');
+
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('document_contents', function (Blueprint $table) {
+
+            $table->dropColumn([
+                'extraction_method',
+                'ocr_used',
+                'confidence',
+                'metadata',
+            ]);
+
+        });
+    }
+};================================================== 
+D:\laragon\www\inamor\database\migrations\2026_08_08_071959_add_archived_to_documents_status.php 
+================================================== 
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        // Menggunakan Raw Query (DB::statement) adalah cara paling aman dan anti-error 
+        // untuk memodifikasi kolom ENUM di MySQL tanpa perlu menginstall doctrine/dbal.
+        DB::statement("ALTER TABLE documents MODIFY COLUMN status ENUM('pending', 'processing', 'ready', 'failed', 'archived') NOT NULL DEFAULT 'pending'");
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        // PENTING: Saat rollback, kita kembalikan ke ENUM aslinya.
+        // Jika ada data yang terlanjur 'archived', kita ubah dulu ke 'ready' agar tidak error saat ENUM dikecilkan.
+        DB::statement("UPDATE documents SET status = 'ready' WHERE status = 'archived'");
+        DB::statement("ALTER TABLE documents MODIFY COLUMN status ENUM('pending', 'processing', 'ready', 'failed') NOT NULL DEFAULT 'pending'");
+    }
+};================================================== 
+D:\laragon\www\inamor\database\migrations\2026_08_12_051059_create_notifications_table.php 
+================================================== 
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        if (Schema::hasTable('notifications')) {
+            return;
+        }
+
+        Schema::create('notifications', function (Blueprint $table) {
+            $table->uuid('id')->primary();
+
+            $table->foreignId('workspace_id')
+                ->nullable()
+                ->constrained('workspaces')
+                ->cascadeOnDelete();
+
+            $table->foreignId('user_id')
+                ->constrained('users')
+                ->cascadeOnDelete();
+
+            $table->string('type', 50);
+
+            $table->string('title');
+
+            $table->text('message');
+
+            $table->json('data')->nullable();
+
+            $table->timestamp('read_at')->nullable();
+
+            $table->timestamps();
+
+            $table->index([
+                'workspace_id',
+                'user_id',
+                'read_at',
+            ]);
+
+            $table->index([
+                'workspace_id',
+                'type',
+            ]);
+
+            $table->index([
+                'user_id',
+                'created_at',
+            ]);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('notifications');
+    }
+};================================================== 
+D:\laragon\www\inamor\database\migrations\2026_08_12_060835_create_announcements_table.php 
+================================================== 
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('announcements', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('workspace_id')
+                ->constrained('workspaces')
+                ->cascadeOnDelete();
+
+            $table->foreignId('author_id')
+                ->constrained('users')
+                ->cascadeOnDelete();
+
+            $table->string('title');
+
+            $table->text('content');
+
+            $table->enum('status', ['draft', 'published'])->default('draft');
+
+            $table->timestamp('published_at')->nullable();
+
+            $table->timestamps();
+
+            $table->index(['workspace_id', 'status']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('announcements');
+    }
+};================================================== 
+D:\laragon\www\inamor\database\migrations\2026_08_12_060915_create_workspace_conversations_table.php 
+================================================== 
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('workspace_conversations', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('workspace_id')
+                ->constrained('workspaces')
+                ->cascadeOnDelete();
+
+            $table->foreignId('created_by')
+                ->constrained('users')
+                ->cascadeOnDelete();
+
+            $table->string('title')->default('General');
+
+            $table->timestamps();
+
+            $table->index('workspace_id');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('workspace_conversations');
+    }
+};================================================== 
+D:\laragon\www\inamor\database\migrations\2026_08_12_060920_create_workspace_messages_table.php 
+================================================== 
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('workspace_messages', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('conversation_id')
+                ->constrained('workspace_conversations')
+                ->cascadeOnDelete();
+
+            $table->foreignId('user_id')
+                ->constrained('users')
+                ->cascadeOnDelete();
+
+            $table->text('message');
+
+            $table->timestamps();
+
+            $table->index('conversation_id');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('workspace_messages');
+    }
+};

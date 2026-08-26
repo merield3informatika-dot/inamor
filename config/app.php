@@ -1,7 +1,10 @@
 <?php
 
 return [
-
+'mobile_url' => env(
+    'MOBILE_URL',
+    'http://localhost:5173',
+),
     /*
     |--------------------------------------------------------------------------
     | Application Name

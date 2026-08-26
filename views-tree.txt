@@ -1,0 +1,159 @@
+Folder PATH listing for volume New Volume
+Volume serial number is 000001D5 C4B1:90BB
+D:\LARAGON\WWW\INAMOR\RESOURCES\VIEWS
+|   dashboard.blade.php
+|   welcome.blade.php
+|   
++---ai
+|       analytics.blade.php
+|       
++---ai-analytics
+|       index.blade.php
+|       
++---announcements
+|       create.blade.php
+|       edit.blade.php
+|       index.blade.php
+|       
++---auth
+|       choose.blade.php
+|       confirm-password.blade.php
+|       forgot-password.blade.php
+|       login.blade.php
+|       register.blade.php
+|       reset-password.blade.php
+|       verify-email.blade.php
+|       
++---calendar
+|   |   create.blade.php
+|   |   edit.blade.php
+|   |   index.blade.php
+|   |   
+|   \---_partials
+|           form.blade.php
+|           
++---chat
+|       chatpage.blade.php
+|       index.blade.php
+|       
++---components
+|   |   application-logo.blade.php
+|   |   auth-session-status.blade.php
+|   |   danger-button.blade.php
+|   |   dropdown-link.blade.php
+|   |   dropdown.blade.php
+|   |   input-error.blade.php
+|   |   input-label.blade.php
+|   |   member-quick-card.blade.php
+|   |   modal.blade.php
+|   |   nav-link.blade.php
+|   |   primary-button.blade.php
+|   |   responsive-nav-link.blade.php
+|   |   right-sidebar.blade.php
+|   |   secondary-button.blade.php
+|   |   sidebar.blade.php
+|   |   text-input.blade.php
+|   |   topbar.blade.php
+|   |   
+|   +---dashboard
+|   |       ai-engine.blade.php
+|   |       announcements.blade.php
+|   |       calendar.blade.php
+|   |       hero.blade.php
+|   |       quick-actions.blade.php
+|   |       recent-activities.blade.php
+|   |       recent-documents.blade.php
+|   |       statistics.blade.php
+|   |       
+|   +---layouts
+|   |       onboarding.blade.php
+|   |       
+|   \---public
+|           feature-card.blade.php
+|           footer.blade.php
+|           navbar.blade.php
+|           
++---documents
+|       create.blade.php
+|       index.blade.php
+|       show.blade.php
+|       
++---knowledge
+|   +---feedback
+|   |       index.blade.php
+|   |       show.blade.php
+|   |       
+|   \---manual
+|           create.blade.php
+|           edit.blade.php
+|           index.blade.php
+|           show.blade.php
+|           
++---layouts
+|       app.blade.php
+|       guest.blade.php
+|       mobile.blade.php
+|       navigation.blade.php
+|       
++---mobile
+|   |   account-edit.blade.php
+|   |   account.blade.php
+|   |   home.blade.php
+|   |   notifications.blade.php
+|   |   
+|   +---ai
+|   |       index.blade.php
+|   |       
+|   +---calendar
+|   |       index.blade.php
+|   |       
+|   \---chat
+|           show.blade.php
+|           
++---notifications
+|       index.blade.php
+|       
++---onboarding
+|       identity.blade.php
+|       knowledge.blade.php
+|       privacy.blade.php
+|       
++---people
+|       show.blade.php
+|       
++---profile
+|   |   edit.blade.php
+|   |   
+|   \---partials
+|           delete-user-form.blade.php
+|           update-password-form.blade.php
+|           update-profile-information-form.blade.php
+|           
++---public
+|       landing.blade.php
+|       
+\---workspaces
+    +---create
+    |       index.blade.php
+    |       success.blade.php
+    |       
+    +---invitation
+    |       show.blade.php
+    |       
+    +---join-request
+    |       archived.blade.php
+    |       create.blade.php
+    |       index.blade.php
+    |       pending.blade.php
+    |       
+    +---members
+    |       index.blade.php
+    |       
+    +---roles
+    |       index.blade.php
+    |       
+    \---settings
+            danger.blade.php
+            general.blade.php
+            tabs.blade.php
+            
