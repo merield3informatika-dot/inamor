@@ -145,7 +145,7 @@ profile_url: @js(
                             </div>
 
                             <div class="flex items-center gap-2" @click.stop>
-                                @if(!$member->isOwner())
+                                @if($member->user_id !== $workspace->owner_id)
                                     <form action="{{ route('workspace.members.update-role', $member->id) }}" method="POST" class="m-0">
                                         @csrf
                                         <select name="role" 

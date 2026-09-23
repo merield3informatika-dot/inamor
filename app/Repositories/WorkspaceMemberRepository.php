@@ -38,6 +38,20 @@ class WorkspaceMemberRepository
             ->find($id);
     }
 
+    public function findForWorkspace(
+        int $id,
+        int $workspaceId,
+    ): ?WorkspaceMember {
+
+        return WorkspaceMember::query()
+            ->with([
+                'user.workspaceMemberships',
+                'workspace',
+            ])
+            ->where('workspace_id', $workspaceId)
+            ->find($id);
+    }
+
     public function paginate(
         int $workspaceId,
         int $perPage = 15,

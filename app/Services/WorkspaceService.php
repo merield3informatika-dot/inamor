@@ -42,7 +42,7 @@ class WorkspaceService
 
             $workspace->members()->create([
                 'user_id' => $user->id,
-                'role' => 'admin',
+                'role' => 'owner',
             ]);
 
             $user->update([

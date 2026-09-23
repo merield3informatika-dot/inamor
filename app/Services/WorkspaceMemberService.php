@@ -7,6 +7,7 @@ use App\Models\Workspace;
 use App\Models\WorkspaceMember;
 use App\Repositories\WorkspaceMemberRepository;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class WorkspaceMemberService
 {
@@ -70,11 +71,22 @@ class WorkspaceMemberService
         int $memberId,
     ): void {
 
-        $member = $this->repository->find($memberId);
+        $member = $this->memberManagedBy($user, $memberId);
 
-        abort_if(! $member, 404);
+        DB::transaction(function () use ($member): void {
+            $this->repository->delete($member);
 
-        $this->repository->delete($member);
+            if ($member->user->current_workspace_id !== $member->workspace_id) {
+                return;
+            }
+
+            $fallbackMembership = $member->user->workspaceMemberships
+                ->firstWhere('workspace_id', '!=', $member->workspace_id);
+
+            $member->user->update([
+                'current_workspace_id' => $fallbackMembership?->workspace_id,
+            ]);
+        });
     }
 
     public function isMember(
@@ -108,13 +120,40 @@ class WorkspaceMemberService
         string $role,
     ): WorkspaceMember {
 
-        $member = $this->repository->find($memberId);
-
-        abort_if(! $member, 404);
+        $member = $this->memberManagedBy($user, $memberId);
 
         return $this->changeRole(
             $member,
             $role,
         );
+    }
+
+    private function memberManagedBy(
+        User $user,
+        int $memberId,
+    ): WorkspaceMember {
+
+        abort_if(! $user->current_workspace_id, 403);
+
+        $member = $this->repository->findForWorkspace(
+            $memberId,
+            $user->current_workspace_id,
+        );
+
+        abort_if(! $member, 404);
+
+        abort_unless(
+            $member->workspace->owner_id === $user->id,
+            403,
+            'Only the Workspace Owner can manage members.'
+        );
+
+        abort_if(
+            $member->workspace->owner_id === $member->user_id,
+            403,
+            'The Workspace Owner cannot be managed as a member.'
+        );
+
+        return $member;
     }
 }

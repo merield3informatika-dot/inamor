@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Workspace;
 
 use App\Http\Controllers\Controller;
 use App\Services\WorkspaceMemberService;
+use App\Services\WorkspaceService;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
@@ -12,6 +13,7 @@ class WorkspaceMemberController extends Controller
 {
     public function __construct(
         protected WorkspaceMemberService $workspaceMemberService,
+        protected WorkspaceService $workspaceService,
     ) {
     }
 
@@ -25,10 +27,12 @@ class WorkspaceMemberController extends Controller
                 $request->user(),
             );
 
-        return view(
-            'workspaces.members.index',
-            compact('members'),
-        );
+        return view('workspaces.members.index', [
+            'members' => $members,
+            'workspace' => $this->workspaceService->resolveActive(
+                $request->user(),
+            ),
+        ]);
     }
 
     /**
@@ -42,7 +46,7 @@ class WorkspaceMemberController extends Controller
         $request->validate([
             'role' => [
                 'required',
-                'in:owner,admin,member,viewer',
+                'in:admin,member,viewer',
             ],
         ]);
 
@@ -58,9 +62,6 @@ class WorkspaceMemberController extends Controller
         );
     }
 
-    /**
-     * Remove member.
-     */
     public function destroy(
         Request $request,
         int $member,
